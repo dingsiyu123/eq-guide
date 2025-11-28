@@ -1,10 +1,5 @@
 import type { Config } from 'tailwindcss';
 
-// 这是一个自定义的 Tailwind 插件，它的唯一作用就是在构建时打印一条消息。
-const diagnosticPlugin = function() {
-  console.log('[TAILWIND DIAGNOSTIC]: Plugin is being executed!');
-};
-
 const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
@@ -39,10 +34,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [
-    // 在这里加入了我们的诊断插件
-    diagnosticPlugin
-  ],
+  plugins: [],
 };
 
 export default config;
