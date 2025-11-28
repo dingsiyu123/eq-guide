@@ -1,5 +1,10 @@
 import type { Config } from 'tailwindcss';
 
+// 这是一个自定义的 Tailwind 插件，它的唯一作用就是在构建时打印一条消息。
+const diagnosticPlugin = function() {
+  console.log('[TAILWIND DIAGNOSTIC]: Plugin is being executed!');
+};
+
 const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,19 +14,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: '#F2ECDC',   // 陈旧宣纸色
-        ink: '#2B2B2B',     // 浓墨
-        cinnabar: '#9A2A2A', // 朱砂红 (印章)
-        border: '#5C5C5C',  // 边框灰
+        paper: '#F2ECDC',
+        ink: '#2B2B2B',
+        cinnabar: '#9A2A2A',
+        border: '#5C5C5C',
         stone: {
-            DEFAULT: '#8C8C8C',
-            100: '#F5F5F5',
-            200: '#E7E5E4',
-            300: '#D6D3D1',
-            400: '#A8A29E',
-            500: '#78716C',
-            600: '#57534E',
-            900: '#1C1917'
+          DEFAULT: '#8C8C8C',
+          '100': '#F5F5F5',
+          '200': '#E7E5E4',
+          '300': '#D6D3D1',
+          '400': '#A8A29E',
+          '500': '#78716C',
+          '600': '#57534E',
+          '900': '#1C1917'
         },
       },
       fontFamily: {
@@ -34,6 +39,10 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // 在这里加入了我们的诊断插件
+    diagnosticPlugin
+  ],
 };
+
 export default config;
