@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
-import { getAIResponse } from '../services/aiService';
+//import { getAIResponse } from '../services/aiService';
 import { Wine, Mic, Handshake, Zap, Edit3, Feather, RefreshCw, Plus } from 'lucide-react';
 
 interface Props {
@@ -271,6 +271,7 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   };
 
   const handleGenerate = async () => {
+    /*
     if (!selectedSceneId) return;
     
     // 自定义场景特殊处理
@@ -342,6 +343,7 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
     } finally {
         setLoading(false);
     }
+        */ //
   };
 
   const getOptionClass = (isSelected: boolean) => {

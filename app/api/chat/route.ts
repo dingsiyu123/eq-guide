@@ -185,20 +185,21 @@ ${intentInfo}
     }
 
     // --- 3. 处理 SSE 流 (Server-Sent Events) ---
-    // SiliconFlow 返回的数据格式是 data: {...}，我们需要解析它，提取出 content，只把纯文本发给前端。
-    
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-
     const stream = new ReadableStream({
       async start(controller) {
-        if (!response.body) return;
+        if (!response.body) {
+            controller.close();
+            return;
+        };
         const reader = response.body.getReader();
         let buffer = "";
 
         try {
           while (true) {
             const { done, value } = await reader.read();
+
             if (done) break;
             
             buffer += decoder.decode(value, { stream: true });

@@ -33,6 +33,7 @@ export interface Plan {
 export interface ArenaLevel {
   id: number;
   title: string;
+  missionBrief?: string;
   opponentName: string;
   background: string;
   userContext: string; // The user's secret backstory/constraints
@@ -42,6 +43,7 @@ export interface ArenaLevel {
   victoryCondition: string; // NEW: 明确的胜利条件描述 (防止AI误判)
 }
 
+// ... existing code ...
 export interface ArenaTurn {
   userReply: string;
   aiResponse: string;
@@ -51,4 +53,5 @@ export interface ArenaTurn {
   mood: number; // 当前心情值
   innerOS: string; // 对方的内心潜台词
   analysis?: string; // If failed, AI analyzes why
+  funnyReaction?: string; // 新增：搞笑的最终行动
 }

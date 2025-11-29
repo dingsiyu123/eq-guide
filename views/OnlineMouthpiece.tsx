@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
-import { getAIResponse } from '../services/aiService';
+//import { getAIResponse } from '../services/aiService';
 import { Feather, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -60,6 +60,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   };
 
   const handleGenerate = async () => {
+    /*
     if (!inputText.trim()) {
       alert("请告知师爷对方说了什么");
       return;
@@ -105,6 +106,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
     } finally {
       setLoading(false);
     }
+      */
   };
 
   return (
