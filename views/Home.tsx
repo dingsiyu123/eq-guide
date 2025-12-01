@@ -1,5 +1,5 @@
-import React from 'react';
-import { MessageCircle, Wine, Swords } from 'lucide-react';
+import React, { useState } from 'react';
+import { MessageCircle, Wine, Swords, Mail } from 'lucide-react';
 import { Page } from '../types';
 
 interface HomeProps {
@@ -7,6 +7,9 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
+  // 控制邮箱显示的开关
+  const [showEmail, setShowEmail] = useState(false);
+
   return (
     <div className="min-h-screen bg-ancient flex flex-col items-center p-8 relative overflow-hidden">
       {/* 装饰边框 */}
@@ -70,8 +73,33 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </button>
       </div>
 
-      <div className="mt-auto mb-4 text-xs text-stone-400 font-serif tracking-widest opacity-60">
-        © 乙巳年 · 赛博出版
+      {/* 底部注脚区域 (交互式) */}
+      <div className="mt-16 mb-8 flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition-opacity duration-500 z-20">
+        <div className="text-[10px] font-serif tracking-[0.2em] text-stone-500 text-center leading-loose">
+          <p>乙巳年 · 赛博出版</p>
+          
+          {/* 点击名字或图标展开邮箱 */}
+          <div 
+            className="mt-1 flex items-center justify-center gap-2 cursor-pointer group"
+            onClick={() => setShowEmail(!showEmail)}
+            title="点击查看联系方式"
+          >
+            <span>
+              Designed by{' '}
+              <span className={`font-bold border-b transition-all pb-[1px] ${showEmail ? 'text-cinnabar border-cinnabar' : 'text-stone-600 border-stone-400/30 group-hover:text-ink'}`}>
+                Ding Siyu
+              </span>
+            </span>
+            <Mail size={12} className={`transition-colors ${showEmail ? 'text-cinnabar' : 'text-stone-400 group-hover:text-ink'}`} />
+          </div>
+
+          {/* 邮箱展开区域 */}
+          <div className={`overflow-hidden transition-all duration-300 ease-out flex flex-col items-center ${showEmail ? 'max-h-12 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+             <span className="text-cinnabar font-bold select-all bg-white/50 px-2 py-1 rounded-sm border border-cinnabar/20 shadow-sm">
+               dddingsiyu@163.com
+             </span>
+          </div>
+        </div>
       </div>
     </div>
   );

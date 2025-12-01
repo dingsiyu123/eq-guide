@@ -76,3 +76,33 @@ export const getJudgeResult = async (
   }
   return response.json();
 };
+/**
+ * 通用的AI响应获取函数 (用于线上嘴替 & 线下问诊)
+ */
+export const getAIResponse = async (
+  type: 'online' | 'offline',
+  inputData: any,
+  onChunk: (chunk: string) => void
+) => {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, inputData }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  if (!reader) return;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value, { stream: true });
+    onChunk(text);
+  }
+};

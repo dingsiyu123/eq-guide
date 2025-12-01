@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
-//import { getAIResponse } from '../services/aiService';
+import { getAIResponse } from '../services/aiService';
 import { Feather, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -60,7 +60,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   };
 
   const handleGenerate = async () => {
-    /*
+    
     if (!inputText.trim()) {
       alert("请告知师爷对方说了什么");
       return;
@@ -106,7 +106,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
     } finally {
       setLoading(false);
     }
-      */
+      
   };
 
   return (
@@ -191,7 +191,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
               我的意图
             </label>
             <div className="flex flex-wrap gap-3">
-              {['哄着他', '糊弄他', '拒绝他'].map(intent => (
+              {['答应Ta', '糊弄Ta', '拒绝Ta'].map(intent => (
                 <button
                   key={intent}
                   onClick={() => setMyIntent(intent)}
@@ -301,6 +301,15 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
                   <ResultCard 
                     plan={plan} 
                     type="online" 
+                    contextData={[
+                      { label: "对方", value: targetRole === '自定义' ? customRole : targetRole },
+                      { label: "意图", value: myIntent === '自定义' ? customIntent : myIntent },
+                      { label: "关系分", value: `${relationScore} / 10` },
+                      
+                      // 👇 关键：这里的 label 必须是 '原话'，不要改别的
+                      { label: "原话", value: inputText.substring(0, 30) + (inputText.length > 30 ? '...' : '') } 
+                    ]}
+                    
                     onRegenerateSingle={() => {}} 
                   />
                 </div>

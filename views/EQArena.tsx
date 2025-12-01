@@ -39,7 +39,7 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
     setCurrentMood(currentLevel.initialMood);
     setCurrentOS(`（${currentLevel.opponentName}正在等待你的回复...）`);
     
-    const openingParts = currentLevel.openingLine.split('|||');
+    const openingParts = currentLevel.openingLine.split(/\|{1,3}/);
     setChatHistory([
       { sender: 'system', text: currentLevel.missionBrief as string },
       ...openingParts.map(t => ({ sender: 'ai', text: t } as ChatHistoryItem))
@@ -64,18 +64,79 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
 
     let actorFullResponse = "";
     let monologueFullResponse = "";
-    let streamingActorBubbles: ChatHistoryItem[] = [];
+    
+    // 异步结算裁判逻辑，不阻塞UI
+    getJudgeResult(
+      historyWithUserMessage as ChatMessage[],
+      currentLevel,
+      currentMood
+    ).then(judgeResult => {
+      if (judgeResult) {
+        // 静默更新好感度
+        setCurrentMood(judgeResult.mood);
+
+        if (judgeResult.isGameOver) {
+          setGameOver(true);
+          
+          const finalResultData: ArenaTurn = {
+            userReply: userText,
+            aiResponse: actorFullResponse.replace(/\|{1,3}/g, '\n'),
+            isWin: judgeResult.isWin,
+            score: judgeResult.mood,
+            mood: judgeResult.mood,
+            innerOS: monologueFullResponse,
+            analysis: judgeResult.analysis,
+            funnyReaction: judgeResult.funnyReaction,
+          };
+
+          setTurnResult(finalResultData);
+
+          // 500ms后追加系统消息，进行“宣判”
+          setTimeout(() => {
+            const systemMessages: ChatHistoryItem[] = [];
+            if (finalResultData.funnyReaction) {
+              systemMessages.push({ sender: 'system', text: `【通知】${finalResultData.funnyReaction}` });
+            }
+            systemMessages.push({ sender: 'system', text: `【师爷点评】\n${finalResultData.analysis}` });
+            
+            setChatHistory(prev => [...prev, ...systemMessages]);
+            setReviewMode(true);
+          }, 500);
+        }
+      }
+    }).catch(e => {
+        console.error("An error occurred in getJudgeResult:", e);
+        // 裁判算分失败不应中断主流程，仅在控制台记录
+    });
 
     try {
-      // 步骤1：恢复并行请求，保证即时响应速度
+      // 演员和内心戏的流式响应并行处理
       const actorPromise = getActorResponse(
         historyWithUserMessage as ChatMessage[],
         currentLevel,
         (chunk: string) => {
           actorFullResponse += chunk;
-          const bubbleTexts = actorFullResponse.split('|||').filter(t => t.trim() !== '');
-          streamingActorBubbles = bubbleTexts.map(t => ({ sender: 'ai', text: t } as ChatHistoryItem));
-          setChatHistory([...historyWithUserMessage, ...streamingActorBubbles]);
+          // 使用正则表达式分割，兼容 |、||、|||
+          const newStreamingBubbles = actorFullResponse
+            .split(/\|{1,3}/)
+            .filter(t => t.trim() !== '')
+            .map(t => ({ sender: 'ai', text: t } as ChatHistoryItem));
+
+          setChatHistory(prevHistory => {
+            // 这是修复问题的关键：使用 for 循环代替 findLastIndex，以保证兼容性
+            let lastUserIndex = -1;
+            for (let i = prevHistory.length - 1; i >= 0; i--) {
+              if (prevHistory[i].sender === 'user') {
+                lastUserIndex = i;
+                break;
+              }
+            }
+            
+            const historyBeforeAiResponse = prevHistory.slice(0, lastUserIndex + 1);
+            const historyAfterAiResponse = prevHistory.slice(lastUserIndex + 1).filter(m => m.sender !== 'ai');
+            
+            return [...historyBeforeAiResponse, ...newStreamingBubbles, ...historyAfterAiResponse];
+          });
         }
       );
 
@@ -88,86 +149,17 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
         }
       );
       
-      const judgePromise = getJudgeResult(
-        historyWithUserMessage as ChatMessage[],
-        currentLevel,
-        currentMood
-      );
-
-      // 等待所有并行请求完成
-      const [_, __, judgeResult] = await Promise.all([actorPromise, monologuePromise, judgePromise]);
-
-      if (judgeResult) {
-        setCurrentMood(judgeResult.mood);
-        
-        // 步骤2：检查游戏是否结束
-        if (judgeResult.isGameOver) {
-          setGameOver(true);
-
-          // 步骤3：如果游戏结束，则根据最终结果再次获取正确的台词和内心戏
-          const finalSystemInstruction = `【系统指令】游戏已结束。最终赛果是：${judgeResult.isWin ? '你赢了' : '你输了'}。请根据这个结果，说出你最后的台词和最终的内心想法。`;
-          const finalHistory: ChatMessage[] = [
-            ...(historyWithUserMessage as ChatMessage[]),
-            { id: 'system-final-instruction', sender: 'system', text: finalSystemInstruction }
-          ];
-
-          let finalActorResponse = "";
-          let finalMonologueResponse = "";
-          
-          // 在后台获取最终的、符合逻辑的回复
-          const finalActorPromise = getActorResponse(finalHistory, currentLevel, chunk => { finalActorResponse += chunk; });
-          const finalMonologuePromise = getMonologueResponse(finalHistory, currentLevel, chunk => { finalMonologueResponse += chunk; });
-          
-          await Promise.all([finalActorPromise, finalMonologuePromise]);
-
-          const finalResultData: ArenaTurn = {
-            userReply: userText,
-            aiResponse: finalActorResponse.replace(/\|\|\|/g, '\n'),
-            isWin: judgeResult.isWin,
-            score: judgeResult.mood,
-            mood: judgeResult.mood,
-            innerOS: finalMonologueResponse,
-            analysis: judgeResult.analysis,
-            funnyReaction: judgeResult.funnyReaction,
-          };
-          
-          setTurnResult(finalResultData);
-
-          // 步骤4：用最终正确的台词更新UI
-          const finalActorBubbles = finalActorResponse.split('|||').filter(t => t.trim() !== '').map(t => ({ sender: 'ai', text: t } as ChatHistoryItem));
-          setChatHistory([...historyWithUserMessage, ...finalActorBubbles]);
-
-          // 只在游戏胜利时显示彩蛋
-          if (finalResultData.isWin && finalResultData.funnyReaction) {
-            setTimeout(() => {
-              setChatHistory(prev => [
-                ...prev,
-                { sender: 'system', text: `【通知】${finalResultData.funnyReaction}` }
-              ]);
-            }, 600);
-          }
-
-          setTimeout(() => {
-            setChatHistory(prev => [
-              ...prev,
-              { sender: 'system', text: `【师爷点评】\n${finalResultData.analysis}` }
-            ]);
-            setReviewMode(true);
-          }, 1200);
-
-        } 
-        // 移除了游戏未结束时的彩蛋逻辑，彻底修复bug
-      }
+      await Promise.all([actorPromise, monologuePromise]);
 
     } catch (e) {
-      console.error("An error occurred in handleSend:", e);
+      console.error("An error occurred in handleSend streaming:", e);
       alert("对方掉线了，请检查网络或刷新重试");
-      // 回滚到用户发送前的状态
       setChatHistory(chatHistory);
     } finally {
       setIsTyping(false);
     }
   };
+
   const handleNextLevel = () => {
     if (currentLevelIdx < ARENA_LEVELS.length - 1) {
       setCurrentLevelIdx(prev => prev + 1);
@@ -180,7 +172,6 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
   const handleRetry = () => {
     setGameId(prev => prev + 1);
   };
-
   const getMoodColor = (val: number) => {
     if (val < 20) return 'bg-red-600';
     if (val < 50) return 'bg-orange-500';

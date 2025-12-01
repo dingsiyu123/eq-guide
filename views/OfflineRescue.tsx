@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
-//import { getAIResponse } from '../services/aiService';
+import { getAIResponse } from '../services/aiService';
 import { Wine, Mic, Handshake, Zap, Edit3, Feather, RefreshCw, Plus } from 'lucide-react';
 
 interface Props {
@@ -271,7 +271,7 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   };
 
   const handleGenerate = async () => {
-    /*
+    
     if (!selectedSceneId) return;
     
     // 自定义场景特殊处理
@@ -343,7 +343,24 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
     } finally {
         setLoading(false);
     }
-        */ //
+        
+  };
+
+  const getContextData = () => {
+    const data: { label: string; value: string }[] = [];
+    currentFields.forEach(field => {
+      const val = formState[field.key];
+      const displayVal = Array.isArray(val) ? val.join('、') : val;
+      const finalVal = (displayVal === '自定义' || (Array.isArray(val) && val.includes('自定义'))) 
+          ? (customInputs[field.key] || displayVal) 
+          : displayVal;
+          
+      if (finalVal) {
+        // 去掉 label 里的 "(多选)" 后缀，显示更干净
+        data.push({ label: field.label.replace(' (多选)', ''), value: finalVal as string });
+      }
+    });
+    return data;
   };
 
   const getOptionClass = (isSelected: boolean) => {
@@ -568,7 +585,13 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
                   )}
                   {results.map((plan) => (
                     <div key={plan.id} className="animate-[fadeIn_0.3s_ease-out]">
-                      <ResultCard plan={plan} type="offline" onRegenerateSingle={() => {}} />
+                      <ResultCard 
+                        plan={plan} 
+                        type="offline" 
+                        contextData={getContextData()}
+                        onRegenerateSingle={() => {}} 
+                      
+                      />
                     </div>
                   ))}
                 </div>

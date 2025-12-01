@@ -78,7 +78,14 @@ export async function POST(req: NextRequest) {
 
             for (const line of lines) {
               const trimmed = line.trim();
-              if (!trimmed || trimmed === "data: [DONE]") continue;
+              if (!trimmed) continue;
+              
+              // 遇到 [DONE] 信号，立即关闭流并退出
+              if (trimmed === 'data: [DONE]') {
+                controller.close();
+                return;
+              }
+              
               if (trimmed.startsWith("data: ")) {
                 try {
                   const jsonStr = trimmed.substring(6);
