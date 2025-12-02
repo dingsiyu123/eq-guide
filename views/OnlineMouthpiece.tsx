@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
@@ -17,7 +16,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   
   const [targetRole, setTargetRole] = useState('同事');
   const [customRole, setCustomRole] = useState('');
-  
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [myIntent, setMyIntent] = useState('糊弄他');
   const [customIntent, setCustomIntent] = useState('');
   
@@ -30,6 +29,9 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   const [statusText, setStatusText] = useState('准备中...');
 
   const parseStreamToPlans = (fullText: string): Plan[] => {
+    const startTime = performance.now(); // <-- 在这里加上这行
+    console.log('[DEBUG] Enter parseStreamToPlans');
+
     const rawPlans = fullText.split('===PLAN_START===');
     const parsedPlans: Plan[] = [];
 
@@ -55,17 +57,24 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
         });
       }
     });
+    
+    const endTime = performance.now();
+    console.log(`[DEBUG] Exit parseStreamToPlans. Duration: ${endTime - startTime}ms`);
+
 
     return parsedPlans;
   };
-
+  
   const handleGenerate = async () => {
+    console.log('[DEBUG] handleGenerate started.');
     
+    // --- 1. 基础输入校验 (原逻辑) ---
     if (!inputText.trim()) {
       alert("请告知师爷对方说了什么");
       return;
     }
 
+    // --- 2. 准备参数 (原逻辑 - 之前丢失的部分都在这里) ---
     const finalRole = targetRole === '自定义' ? customRole : targetRole;
     const finalIntent = myIntent === '自定义' ? customIntent : myIntent;
 
@@ -78,35 +87,68 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
       return;
     }
 
+    // --- 🔥 3. 核心防卡顿逻辑 (新加部分) ---
+    // 如果之前有正在进行的请求，立刻掐断它！
+    if (abortControllerRef.current) {
+      console.log('[DEBUG] Aborting previous request.');
+      
+      abortControllerRef.current.abort();
+    }
+    // 创建一个新的控制器，用于这次请求
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // --- 4. 更新UI状态 ---
     setLoading(true);
     setStatusText('正在研墨...');
     setShowResults(true);
-    setResults([]);
+    setResults([]); // 清空旧结果
     
     let accumulatedText = "";
 
     try {
+      console.log('[DEBUG] Starting getAIResponse call.');
+        
+      // --- 5. 发起请求 ---
       await getAIResponse('online', {
         text: inputText,
-        role: finalRole,
-        intent: finalIntent,
+        role: finalRole,     // 使用上面计算好的 finalRole
+        intent: finalIntent, // 使用上面计算好的 finalIntent
         score: relationScore
       }, (chunk) => {
+        console.log('[DEBUG] Received chunk.');
+
         accumulatedText += chunk;
         const plans = parseStreamToPlans(accumulatedText);
         if (plans.length > 0) {
+          console.log('[DEBUG] Setting results.');
+         
           setResults(plans);
           setStatusText('师爷正在挥毫...');
         }
-      });
-    } catch (e) {
-      console.error(e);
-      alert("师爷暂歇，请稍后再试");
-      setShowResults(false);
+      }, controller.signal);
+      console.log('[DEBUG] getAIResponse finished.');
+     // <--- ✅ 关键：把信号传进去
+    } catch (e: any) {
+      // --- 6. 错误处理 ---
+      // 如果是手动中断(AbortError)，说明是用户点了第二次，这种不算错误，忽略即可
+      if (e.name !== 'AbortError') {
+        console.error('[DEBUG] Error in getAIResponse:', e);
+        console.error(e);
+        alert("师爷暂歇，请稍后再试");
+        setShowResults(false);
+      }
+    
     } finally {
-      setLoading(false);
+      // --- 7. 结束加载状态 ---
+      // 只有当当前控制器仍然是本次的控制器时，才结束Loading
+      // 这里的逻辑是防止：你点了第二次，导致第一次的 finally 触发，把第二次的 loading 误关了
+      if (abortControllerRef.current === controller) {
+        console.log('[DEBUG] Finalizing generation.');
+        setLoading(false);
+        abortControllerRef.current = null;
+      }
     }
-      
   };
 
   return (

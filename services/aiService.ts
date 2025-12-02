@@ -3,10 +3,6 @@ export { ARENA_LEVELS } from '../lib/data';
 
 /**
  * 通用的流式API调用函数
- * @param endpoint API路由地址
- * @param history 聊天历史
- * @param levelInfo 当前关卡信息
- * @param onChunk 收到数据块时的回调
  */
 async function getStreamedResponse(
   endpoint: string,
@@ -76,18 +72,22 @@ export const getJudgeResult = async (
   }
   return response.json();
 };
+
 /**
  * 通用的AI响应获取函数 (用于线上嘴替 & 线下问诊)
+ * ✅ 修复点：添加了 signal 参数，并修复了之前的逗号缺失问题
  */
 export const getAIResponse = async (
   type: 'online' | 'offline',
   inputData: any,
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void, // <--- 这里的逗号非常重要
+  signal?: AbortSignal              // <--- 新增的支持中断的信号参数
 ) => {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type, inputData }),
+    signal: signal, // <--- 将信号传给 fetch
   });
 
   if (!response.ok) {
@@ -99,10 +99,19 @@ export const getAIResponse = async (
 
   if (!reader) return;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const text = decoder.decode(value, { stream: true });
-    onChunk(text);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value, { stream: true });
+      onChunk(text);
+    }
+  } catch (error: any) {
+    // 如果是用户主动中断，忽略错误，不要抛出异常
+    if (error.name === 'AbortError') {
+      console.log('Stream aborted by user');
+      return;
+    }
+    throw error;
   }
 };

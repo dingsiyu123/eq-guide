@@ -6,7 +6,7 @@ export const runtime = 'edge';
 
 // 硅基流动 (SiliconFlow) API 配置
 const API_URL = "https://api.siliconflow.cn/v1/chat/completions";
-const MODEL_NAME = process.env.MODEL_NAME || "deepseek-ai/DeepSeek-V3.2-Exp";
+const MODEL_NAME = process.env.MODEL_NAME || "deepseek-ai/DeepSeek-V3.1-Terminus";
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.API_KEY;
@@ -221,10 +221,12 @@ ${intentInfo}
       body: JSON.stringify({
         model: MODEL_NAME,
         messages: messages,
-        stream: true, // 开启流式输出
-        temperature: 1.1, // 稍微高一点的温度，让回答更灵活、更有“人味”
-      })
+        stream: true,
+        temperature: 1.1,
+      }),
+      
     });
+
 
     if (!response.ok) {
         const errorText = await response.text();
