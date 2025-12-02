@@ -3,7 +3,7 @@ import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
 import { getAIResponse } from '../services/aiService';
-import { Feather, RefreshCw } from 'lucide-react';
+import { Feather, RefreshCw, Image as ImageIcon, Type } from 'lucide-react';
 
 interface Props {
   onBack: () => void;
@@ -13,7 +13,7 @@ interface Props {
 
 const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   const [inputText, setInputText] = useState('');
-  
+  const [inputType, setInputType] = useState<'text' | 'image'>('text');
   const [targetRole, setTargetRole] = useState('同事');
   const [customRole, setCustomRole] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -42,8 +42,10 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
       const title = titleMatch ? titleMatch[1].trim() : `正在构思 Plan ${index}...`;
 
       const mindsetMatch = block.match(/【心法】(.*?)\n/);
-      const mindset = mindsetMatch ? mindsetMatch[1].trim() : (fullText.includes('【心法】') ? '正在推敲...' : '');
-
+      // 增加正则替换：去掉开头和结尾的 " 或 “ 或 ”
+      const mindset = mindsetMatch 
+        ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') 
+        : (fullText.includes('【心法】') ? '正在推敲...' : ''); 
       const replyMatches = [...block.matchAll(/【回复】(.*)/g)];
       const replyText = replyMatches.map(m => m[1].trim());
 
@@ -52,7 +54,8 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
           id: `stream-${index}`,
           title,
           mindset,
-          originalText: inputText.substring(0, 20) + (inputText.length > 20 ? '...' : ''),
+          // 如果没字，就传空串，不要自作聪明加省略号
+          originalText: inputText || '',
           replyText: replyText.length > 0 ? replyText : ['师爷正在提笔...']
         });
       }
@@ -69,10 +72,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
     console.log('[DEBUG] handleGenerate started.');
     
     // --- 1. 基础输入校验 (原逻辑) ---
-    if (!inputText.trim()) {
-      alert("请告知师爷对方说了什么");
-      return;
-    }
+    
 
     // --- 2. 准备参数 (原逻辑 - 之前丢失的部分都在这里) ---
     const finalRole = targetRole === '自定义' ? customRole : targetRole;
@@ -108,14 +108,17 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
 
     try {
       console.log('[DEBUG] Starting getAIResponse call.');
-        
-      // --- 5. 发起请求 ---
+      
+      // 🔥 核心修改：如果是空字，给AI发一个特定的指令暗号
+      const textPayload = inputText.trim() === '' ? "【无原话，本次为用户想主动发起对话】" : inputText;
+
       await getAIResponse('online', {
-        text: inputText,
-        role: finalRole,     // 使用上面计算好的 finalRole
-        intent: finalIntent, // 使用上面计算好的 finalIntent
+        text: textPayload, // <--- 这里传处理过的变量
+        role: finalRole,
+        intent: finalIntent,
         score: relationScore
       }, (chunk) => {
+
         console.log('[DEBUG] Received chunk.');
 
         accumulatedText += chunk;
@@ -160,26 +163,67 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
         {/* 表单区域：药方样式 */}
         <div className={`transition-all duration-500 space-y-8 ${showResults ? 'hidden' : 'block'}`}>
           
-          {/* 顶部提示 */}
-          <div className="flex items-center gap-3 text-ink opacity-60">
-              <Feather size={16} />
-              <span className="text-sm font-bold tracking-widest border-b border-ink/30 pb-1">
-                  请呈上聊天记录，师爷为您斟酌措辞
-              </span>
-          </div>
+          
 
-          {/* 对方原话：下划线批注风格 */}
-          <div className="space-y-4">
-            <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-              <span className="w-1 h-6 bg-ink inline-block"></span>
-              对方原话
-            </label>
-            <textarea
-              className="w-full bg-transparent border-b-2 border-stone-400 p-2 text-base outline-none focus:border-ink transition-colors placeholder-stone-400 text-ink font-bold resize-none h-20"
-              placeholder="请粘贴聊天记录..."
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-            />
+          {/* 对方原话：书签 Tab 风格 */}
+          <div className="space-y-2">
+            
+            {/* Tab 导航栏：像古籍的书签一样排列 */}
+            <div className="flex items-end gap-6 border-b-2 border-ink/10 px-1">
+              {/* Tab 1: 文字 */}
+              <button
+                onClick={() => setInputType('text')}
+                className={`pb-2 text-lg font-black tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                  inputType === 'text' 
+                    ? 'text-ink border-b-[3px] border-ink translate-y-[2px]' 
+                    : 'text-stone-400 hover:text-stone-600 border-b-[3px] border-transparent'
+                }`}
+              >
+                <Feather size={18} className={inputType === 'text' ? 'animate-pulse' : ''} />
+                <span>誊录原话</span>
+              </button>
+
+              {/* Tab 2: 截图 */}
+              <button
+                onClick={() => setInputType('image')}
+                className={`pb-2 text-lg font-black tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                  inputType === 'image' 
+                    ? 'text-ink border-b-[3px] border-ink translate-y-[2px]' 
+                    : 'text-stone-400 hover:text-stone-600 border-b-[3px] border-transparent'
+                }`}
+              >
+                <ImageIcon size={18} />
+                <span>呈递截图</span>
+              </button>
+            </div>
+
+            {/* 内容区：根据 Tab 切换 */}
+            <div className="pt-2 min-h-[100px]">
+              {inputType === 'text' ? (
+                <textarea
+                  className="w-full bg-transparent border-none p-2 text-base outline-none focus:ring-0 placeholder-stone-400 text-ink font-bold font-serif resize-none h-24 leading-relaxed animate-[fadeIn_0.3s_ease-out]"
+                  placeholder="请粘贴对方原话，若需主动发起对话，此栏留空即可..."
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                // 截图占位区：宣纸风格
+                <div 
+                  onClick={() => alert("📷 师爷正在闭关修炼“读图术”...\n\n（直接发截图的功能开发中，敬请期待！）")}
+                  className="w-full h-24 border-2 border-dashed border-stone-300 rounded-sm flex flex-col items-center justify-center cursor-pointer hover:border-cinnabar hover:bg-cinnabar/5 transition-all group animate-[fadeIn_0.3s_ease-out] relative overflow-hidden bg-stone-50/50"
+                >
+                  <div className="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <div className="w-8 h-8 rounded-full bg-stone-200 group-hover:bg-cinnabar group-hover:text-white flex items-center justify-center transition-colors text-stone-500">
+                      <ImageIcon size={16} />
+                    </div>
+                    <span className="text-sm font-serif font-bold text-stone-500 group-hover:text-cinnabar tracking-widest">
+                      点击上传聊天截图
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 对方身份 */}

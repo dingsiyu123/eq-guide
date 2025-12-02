@@ -237,7 +237,9 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
 
       // 心法解析：支持多行，直到遇到【步骤】或结束
       const mindsetMatch = cleanBlock.match(/【心法】(.*?)(?=\n【步骤】|$)/s);
-      const mindset = mindsetMatch ? mindsetMatch[1].trim() : '';
+      const mindset = mindsetMatch 
+        ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') 
+        : '';
 
       const steps: any[] = [];
       const stepMatches = [...cleanBlock.matchAll(/【步骤】(.*)/g)];

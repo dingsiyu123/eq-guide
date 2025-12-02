@@ -67,7 +67,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
               </h3>
               <div className="relative pl-4 border-l-[3px] border-cinnabar">
                 <p className="text-sm text-stone-600 font-serif font-bold leading-relaxed text-justify">
-                  "{plan.mindset}"
+                  {plan.mindset}
                 </p>
               </div>
             </div>
@@ -85,12 +85,16 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
             {/* 🎈 线上模式：对话气泡 */}
             {type === 'online' && (
               <div className="space-y-6 relative z-10 font-serif">
-                 <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-ink text-paper flex items-center justify-center text-sm font-black border-[1.5px] border-ink rounded-sm shrink-0 shadow-sm">彼</div>
-                    <div className="bg-white text-ink px-4 py-3 rounded-md rounded-tl-none border-[1.5px] border-ink text-sm font-bold leading-relaxed shadow-sm relative max-w-[85%]">
-                      <span className="relative z-10">{plan.originalText}</span>
-                    </div>
-                 </div>
+                 {/* 🔥 修改点：只有当有原话时，才显示对方气泡 */}
+                 {plan.originalText && (
+                   <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-ink text-paper flex items-center justify-center text-sm font-black border-[1.5px] border-ink rounded-sm shrink-0 shadow-sm">彼</div>
+                      <div className="bg-white text-ink px-4 py-3 rounded-md rounded-tl-none border-[1.5px] border-ink text-sm font-bold leading-relaxed shadow-sm relative max-w-[85%]">
+                        <span className="relative z-10">{plan.originalText}</span>
+                      </div>
+                   </div>
+                 )}
+                 
                  {plan.replyText?.map((text, idx) => (
                    <div key={idx} className="flex items-start gap-3 justify-end">
                      <div className="bg-[#B5C99A] text-ink px-4 py-3 rounded-md rounded-tr-none border-[1.5px] border-ink text-sm font-bold leading-relaxed shadow-sm relative max-w-[85%] text-left group hover:-translate-y-0.5 transition-transform cursor-default">

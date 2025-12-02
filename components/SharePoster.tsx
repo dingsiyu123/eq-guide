@@ -136,22 +136,30 @@ const SharePoster = forwardRef<HTMLDivElement, SharePosterProps>(({ plan, contex
 
       {/* --- 4. 底部介绍 + 二维码 --- */}
       <div className="flex items-center justify-between border-t-[1.5px] border-dashed border-[#A8A29E] pt-4 mt-auto">
-        <div className="flex-1 pr-4">
+      <div className="flex-1 pr-4">
           
+          {/* 顶部标题：问师爷 + AI标签 */}
           <div className="flex items-center gap-2 mb-1 h-5">
             <span className="text-sm font-black text-[#2B2B2B] tracking-widest">问师爷</span>
-            {/* 🔥 修复重点 3：AI 标签
-               增加 pb-[2px] 强行上移
-            */}
             <span className="flex items-center justify-center h-[16px] px-1.5 bg-[#2B2B2B] text-white text-[9px] font-normal rounded-full pb-[2px]">
               AI
             </span>
           </div>
 
+          {/* 产品介绍 */}
           <p className="text-[10px] text-[#57534E] leading-relaxed text-justify">
             中国人情世故指南<br/>
             线上嘴替 · 线下救场 · 情商游戏 
           </p>
+
+          {/* 🔥 免责声明 (插在这里) */}
+          <div className="mt-2 pt-2 border-t border-dashed border-[#D6D3D1]/60">
+             <p className="text-[8px] text-[#A8A29E] leading-tight scale-90 origin-left transform">
+               * 本回复由 AI 大模型生成，仅供娱乐与参考。<br/>
+             </p>
+          </div>
+
+          {/* 扫码引导 */}
           <div className="text-[10px] text-[#9A2A2A] font-bold mt-2 flex items-center gap-1">
             <span>👉</span>
             <span className="pt-[1px]">长按扫码，破解你的社交死局</span>

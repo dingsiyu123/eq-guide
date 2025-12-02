@@ -122,7 +122,7 @@ async function calculateTotalHeight(
 
     // 3. 心法区
     ctx.font = 'bold 28px "Noto Serif SC"'; 
-    const mindsetLines = wrapText(ctx, `“ ${plan.mindset} ”`, 580);
+    const mindsetLines = wrapText(ctx, plan.mindset, 580);
     const mindsetHeight = mindsetLines.length * 42 + 30;
     y += mindsetHeight + 50;
 
@@ -253,7 +253,7 @@ async function drawContent(
   // --- C. 师爷心法 (正常粗体，非斜体) ---
   const mindsetWidth = contentWidth;
   ctx.font = 'bold 28px "Noto Serif SC"'; 
-  const mindsetLines = wrapText(ctx, `“ ${plan.mindset} ”`, mindsetWidth - 50);
+  const mindsetLines = wrapText(ctx, plan.mindset, mindsetWidth - 50);
   const mindsetHeight = mindsetLines.length * 42 + 30;
 
   drawRoundedRect(ctx, startX, y, mindsetWidth, mindsetHeight, 8, '#FDFBF7', '#E7E5E4', 2);
@@ -286,35 +286,45 @@ async function drawContent(
 // 💬 聊天气泡
 // ===========================================================
 async function drawChatBubbles(ctx: CanvasRenderingContext2D, plan: any, startY: number): Promise<number> {
-  let y = startY;
-
-  // 左侧
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#78716C'; 
-  ctx.font = 'bold 24px "Noto Serif SC"';
-  ctx.textBaseline = 'top';
-  ctx.fillText('对方攻势', 80, y);
-  y += 35;
-
-  const opponentText = plan.originalText || '...';
-  y = drawSingleBubble(ctx, opponentText, y, 'left');
-
-  y += 40; 
-
-  // 右侧
-  ctx.textAlign = 'right'; 
-  ctx.fillStyle = '#9A2A2A';
-  ctx.fillText('师爷回击', 670, y);
-  y += 35;
-
-  const replies = plan.replyText?.slice(0, 2) || [];
-  for (const reply of replies) {
-     y = drawSingleBubble(ctx, reply, y, 'right');
-     y += 20; 
+    let y = startY;
+  
+    // 1. 判断是否有原话 (用于区分是被动回击还是主动出击)
+    const hasOriginalText = plan.originalText && plan.originalText.trim().length > 0;
+  
+    // 2. 如果有原话，绘制左侧“对方攻势”
+    if (hasOriginalText) {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#78716C'; 
+      ctx.font = 'bold 24px "Noto Serif SC"';
+      ctx.textBaseline = 'top';
+      ctx.fillText('对方攻势', 80, y);
+      y += 35;
+  
+      // 绘制对方气泡
+      y = drawSingleBubble(ctx, plan.originalText, y, 'left');
+  
+      y += 40; // 增加间距
+    }
+  
+    // 3. 右侧：根据情况动态改变标题
+    ctx.textAlign = 'right'; 
+    ctx.fillStyle = '#9A2A2A';
+    
+    // 🔥 核心修改：如果有原话叫“师爷回击”，没原话叫“主动出击”
+    const rightTitle = hasOriginalText ? '师爷回击' : '主动出击';
+    ctx.fillText(rightTitle, 670, y);
+    
+    y += 35;
+  
+    // 4. 绘制我方回复气泡
+    const replies = plan.replyText?.slice(0, 2) || [];
+    for (const reply of replies) {
+       y = drawSingleBubble(ctx, reply, y, 'right');
+       y += 20; 
+    }
+  
+    return y;
   }
-
-  return y;
-}
 
 function drawSingleBubble(
     ctx: CanvasRenderingContext2D, 
@@ -459,6 +469,12 @@ async function drawFooter(ctx: CanvasRenderingContext2D, currentY: number) {
   ctx.font = '22px "Noto Serif SC"';
   ctx.fillText('AI 高情商回复助手', 60, footerY + 85);
   ctx.fillText('线上嘴替 · 线下救场', 60, footerY + 120);
+
+  // 🔥 新增：免责声明 (画在最下面，字号更小，颜色更浅)
+  ctx.fillStyle = '#A8A29E'; // 浅灰色
+  ctx.font = '18px "Noto Serif SC"';
+  ctx.fillText(' 本回复由 AI 大模型生成，仅供娱乐', 30, footerY + 155);
+
 
   // 3. 二维码
   try {
