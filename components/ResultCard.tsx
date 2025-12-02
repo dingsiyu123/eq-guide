@@ -1,11 +1,8 @@
-import React, { useState, useRef, memo } from 'react';
+// components/ResultCard.tsx
+import React, { useState, memo } from 'react';
 import { ChevronDown, ChevronUp, Copy, Share2, X } from 'lucide-react';
 import { Plan } from '../types';
-import dynamic from 'next/dynamic';
-const SharePoster = dynamic(() => import('./SharePoster'), {
-  ssr: false,
-  loading: () => <p>加载中...</p>, // 你可以自定义一个加载中的UI
-});
+import { generatePoster } from '../utils/posterGenerator';
 
 interface ResultCardProps {
   plan: Plan;
@@ -19,8 +16,6 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareImage, setShareImage] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  
-  const posterRef = useRef<HTMLDivElement>(null);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,38 +35,17 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
     e.stopPropagation();
     setShowShareModal(true);
     
-    // 如果图片已经生成过，就不再重复生成
     if (shareImage) return;
 
     setGenerating(true);
 
     try {
-      // 🚀 核心优化：点击时才去加载 html2canvas，不阻塞页面
-      const html2canvas = (await import('html2canvas')).default;
-
-      // 稍微延迟 800ms，确保弹窗动画完成且 DOM 稳定
-      setTimeout(() => {
-        document.fonts.ready.then(async () => {
-          if (posterRef.current) {
-            try {
-              const canvas = await html2canvas(posterRef.current, {
-                backgroundColor: '#F2ECDC',
-                scale: 2,
-                useCORS: true,
-                scrollY: -window.scrollY,
-              });
-              setShareImage(canvas.toDataURL('image/png'));
-            } catch (error) {
-              console.error("海报生成失败", error);
-              alert("生成失败，请直接截屏");
-            } finally {
-              setGenerating(false);
-            }
-          }
-        });
-      }, 800);
-    } catch (err) {
-      console.error("加载绘图库失败", err);
+      const imageURL = await generatePoster(plan, type, contextData);
+      setShareImage(imageURL);
+    } catch (error) {
+      console.error("海报生成失败", error);
+      alert("生成失败，请直接截屏");
+    } finally {
       setGenerating(false);
     }
   };
@@ -84,7 +58,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
         }`}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        {/* 卡片头部 */}
+        {/* 🔥 保留你原来的卡片头部 */}
         <div className="p-5 cursor-pointer relative z-10 bg-paper">
           <div className="flex justify-between items-start">
             <div className="flex-1 pr-4">
@@ -93,7 +67,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
               </h3>
               <div className="relative pl-4 border-l-[3px] border-cinnabar">
                 <p className="text-sm text-stone-600 font-serif font-bold leading-relaxed text-justify">
-                  “{plan.mindset}”
+                  "{plan.mindset}"
                 </p>
               </div>
             </div>
@@ -103,11 +77,12 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
           </div>
         </div>
 
-        {/* 展开内容 */}
+        {/* 🔥 保留你原来的展开内容（气泡 + 步骤） */}
         {isExpanded && (
           <div className="border-t-[1.5px] border-b-[1.5px] border-dashed border-ink/20 py-6 px-4 animate-[fadeIn_0.3s_ease-out] relative">
             <div className="absolute inset-0 bg-paper/50 pointer-events-none"></div>
 
+            {/* 🎈 线上模式：对话气泡 */}
             {type === 'online' && (
               <div className="space-y-6 relative z-10 font-serif">
                  <div className="flex items-start gap-3">
@@ -127,6 +102,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
               </div>
             )}
 
+            {/* 📋 线下模式：步骤拆解 */}
             {type === 'offline' && (
                <div className="space-y-6 mt-2 relative z-10 font-serif">
                  {plan.steps?.map((step, idx) => (
@@ -145,6 +121,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
                </div>
             )}
 
+            {/* 🔥 按钮区 */}
             <div className="mt-8 flex gap-2 relative z-10">
                <button 
                  onClick={handleCopy}
@@ -166,17 +143,14 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
         )}
       </div>
 
+      {/* 分享弹窗 */}
       {showShareModal && (
         <div 
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]" 
           onClick={() => setShowShareModal(false)}
         >
           <div className="relative w-full max-w-sm flex flex-col items-center" onClick={e => e.stopPropagation()}>
-            <div className="fixed left-[-9999px] top-0">
-               {/* 这里的组件已经移除了 dynamic，确保稳定性 */}
-               {showShareModal && <SharePoster ref={posterRef} plan={plan} type={type} contextData={contextData} />}
-            </div>
-
+            
             {generating ? (
               <div className="bg-paper border-2 border-ink p-6 rounded-sm flex flex-col items-center gap-3 shadow-lg">
                 <div className="w-8 h-8 border-4 border-stone-300 border-t-cinnabar rounded-full animate-spin"></div>
@@ -207,7 +181,4 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
   );
 };
 
-// 🔥 终极优化：极速比对函数
-// 不再使用 JSON.stringify，而是通过比对核心数据的长度和ID来判断是否需要重绘
-// 这在每秒50次的流式更新中几乎没有性能损耗
 export default memo(ResultCard);
