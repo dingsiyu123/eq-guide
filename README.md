@@ -1,20 +1,82 @@
+# 人情世故指南 (EQ Guide) 🏮
+
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+
+![Project Status](https://img.shields.io/badge/Status-Live-success)
+![Next.js](https://img.shields.io/badge/Next.js-14.0-black)
+
+# 👉 [点击这里，直接开始玩！](https://www.ask-shiye.com) 👈
+*(无需下载，无需注册，手机/电脑点开即用)*
+
+<p>🇨🇳 你的中国式 AI 社交军师 | 线上嘴替 · 线下救场 · 情商江湖</p>
+
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 📖 这是什么？
 
-View your app in AI Studio: https://ai.studio/apps/drive/1JVsp0rP-Gq9ot9XyIFS8tlHVo9aDSKMz
+**人情世故指南** 是一款专为解决“中国式社交难题”打造的 AI 工具。
 
-## Run Locally
+你是否遇到过：
+* 微信上领导发来一句莫名其妙的话，不敢回？
+* 酒局上轮到你敬酒，大脑一片空白？
+* 被同事甩锅，想怼回去又怕撕破脸？
 
-**Prerequisites:**  Node.js
+别慌，**问师爷**！我们通过 AI 大模型，为你实时生成“高情商、懂分寸”的回复话术和行动指南。
 
+## ✨ 有什么好玩的？
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 1. 📱 线上嘴替
+复制对方的话，选择你的意图（糊弄、拒绝、夸奖），AI 立刻生成 3 种不同风格的回复，滴水不漏。
+
+### 2. 🍷 线下救场
+输入场景（如“前任婚礼”、“电梯遇大老板”），AI 教你手怎么放、眼看哪里、第一句说什么。
+
+### 3. ⚔️ 情商江湖 (游戏)
+实战模拟！你要扮演一个职场倒霉蛋，面对“借钱不还的同学”或“甩锅的同事”，看你能否在保住面子的同时赢下这一局。
+
+---
+
+## 👨‍💻 开发者指南 (For Developers)
+
+> **普通玩家请忽略此部分，直接访问 [www.ask-shiye.com](https://www.ask-shiye.com) 即可。**
+> 如果你是开发者，想学习本项目源码或进行二次开发，请阅读以下内容。
+
+### 技术栈
+* **框架**: Next.js 14 (App Router)
+* **模型**: DeepSeek-V3 (via SiliconFlow)
+* **样式**: Tailwind CSS
+
+### 本地运行
+本项目开源，但需要你自己配置 API Key 才能运行。
+
+1.  **Clone 项目**
+    ```bash
+    git clone [https://github.com/dingsiyu123/eq-guide.git](https://github.com/dingsiyu123/eq-guide.git)
+    ```
+
+2.  **安装依赖**
+    ```bash
+    npm install
+    ```
+
+3.  **配置环境变量**
+    复制 `.env.local.example` 为 `.env.local`，并填入你的 SiliconFlow API Key：
+    ```env
+    API_KEY=sk-your-key-here
+    ```
+
+4.  **启动**
+    ```bash
+    npm run dev
+    ```
+
+## 🛡️ 免责声明
+本项目仅供娱乐和参考，AI 建议不代表绝对正确的社交准则。请勿用于违法用途。
+
+---
+
+<div align="center">
+  <p>Designed with ❤️ by <a href="https://github.com/dingsiyu123">Ding Siyu</a></p>
+</div>

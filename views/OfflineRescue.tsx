@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo , useRef} from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
@@ -38,6 +38,7 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   const [formState, setFormState] = useState<Record<string, string | string[]>>({});
   // 专门存储各字段的自定义输入值 map: { fieldKey: customValue }
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  const abortControllerRef = useRef<AbortController | null>(null); 
   
   const [supplement, setSupplement] = useState(''); // 补充信息
   
@@ -45,6 +46,7 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   const [results, setResults] = useState<Plan[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [statusText, setStatusText] = useState('准备中...');
+  const lastUpdateRef = useRef<number>(0);
 
   // --- 场景定义 ---
   const SCENES: SceneDef[] = [
@@ -317,12 +319,24 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
       finalState[field.key] = finalVal;
     });
 
+    // --- 👇 核心请求逻辑开始 👇 ---
+    
+    // 1. 掐断旧请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // 2. 初始化状态
     setLoading(true);
     setStatusText('正在起卦...');
     setShowResults(true);
     setResults([]);
+    lastUpdateRef.current = 0; // 重置节流计时器
     
     let accumulatedText = "";
+
     try {
         const sceneTitle = SCENES.find(s => s.id === selectedSceneId)?.title || selectedSceneId;
         
@@ -332,20 +346,31 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
             supplement: supplement
         }, (chunk) => {
             accumulatedText += chunk;
-            const plans = parseOfflineStream(accumulatedText);
-            // 只有解析出有效 plan 才更新状态
-            if (plans.length > 0) {
-                setResults(plans);
-                setStatusText('师爷正在书写...');
+            
+            // --- 节流逻辑 ---
+            const now = Date.now();
+            if (now - lastUpdateRef.current > 100 || chunk.includes('PLAN_END')) {
+                const plans = parseOfflineStream(accumulatedText);
+                if (plans.length > 0) {
+                    setResults(plans);
+                    setStatusText('师爷正在书写...');
+                }
+                lastUpdateRef.current = now;
             }
-        });
-    } catch(e) {
-        console.error(e);
-        alert("请稍后再试");
+        }, controller.signal); // 传入 signal
+
+    } catch(e: any) {
+        if (e.name !== 'AbortError') {
+            console.error(e);
+            alert("师爷暂歇，请稍后再试");
+        }
     } finally {
-        setLoading(false);
+        if (abortControllerRef.current === controller) {
+            setLoading(false);
+            abortControllerRef.current = null;
+        }
     }
-        
+    // --- 👆 核心请求逻辑结束 👆 ---
   };
 
   const getContextData = () => {
@@ -583,6 +608,8 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
                   {results.length === 0 && loading && (
                     <div className="text-center py-10 text-stone-400 font-serif font-medium animate-pulse">
                       师爷正在研墨...
+                      <br />
+                      局势错综 · 需时十秒
                     </div>
                   )}
                   {results.map((plan) => (

@@ -27,10 +27,12 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   const [showResults, setShowResults] = useState(false);
   
   const [statusText, setStatusText] = useState('准备中...');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null); // 新增：错误状态
+  const lastUpdateRef = useRef<number>(0); // 新增：用于节流的时间戳
 
   const parseStreamToPlans = (fullText: string): Plan[] => {
     const startTime = performance.now(); // <-- 在这里加上这行
-    console.log('[DEBUG] Enter parseStreamToPlans');
+    
 
     const rawPlans = fullText.split('===PLAN_START===');
     const parsedPlans: Plan[] = [];
@@ -62,92 +64,79 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
     });
     
     const endTime = performance.now();
-    console.log(`[DEBUG] Exit parseStreamToPlans. Duration: ${endTime - startTime}ms`);
+    
 
 
     return parsedPlans;
   };
   
+  // 👇 把原来的 handleGenerate 删掉，换成这个新的：
   const handleGenerate = async () => {
-    console.log('[DEBUG] handleGenerate started.');
-    
-    // --- 1. 基础输入校验 (原逻辑) ---
-    
-
-    // --- 2. 准备参数 (原逻辑 - 之前丢失的部分都在这里) ---
+    // 1. 准备参数
     const finalRole = targetRole === '自定义' ? customRole : targetRole;
     const finalIntent = myIntent === '自定义' ? customIntent : myIntent;
 
-    if (!finalRole.trim()) {
-      alert("请输入对方身份");
-      return;
-    }
-    if (!finalIntent.trim()) {
-      alert("请输入您的意图");
-      return;
-    }
+    if (!finalRole.trim()) { alert("请输入对方身份"); return; }
+    if (!finalIntent.trim()) { alert("请输入您的意图"); return; }
 
-    // --- 🔥 3. 核心防卡顿逻辑 (新加部分) ---
-    // 如果之前有正在进行的请求，立刻掐断它！
+    // 2. 中断旧请求
     if (abortControllerRef.current) {
-      console.log('[DEBUG] Aborting previous request.');
-      
       abortControllerRef.current.abort();
     }
-    // 创建一个新的控制器，用于这次请求
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // --- 4. 更新UI状态 ---
+    // 3. 重置状态
     setLoading(true);
     setStatusText('正在研墨...');
     setShowResults(true);
-    setResults([]); // 清空旧结果
+    setResults([]); 
+    setErrorMsg(null); // 清空错误
+    lastUpdateRef.current = 0; // 重置计时器
     
     let accumulatedText = "";
 
     try {
-      console.log('[DEBUG] Starting getAIResponse call.');
-      
-      // 🔥 核心修改：如果是空字，给AI发一个特定的指令暗号
       const textPayload = inputText.trim() === '' ? "【无原话，本次为用户想主动发起对话】" : inputText;
 
+      // 4. 调用 AI
       await getAIResponse('online', {
-        text: textPayload, // <--- 这里传处理过的变量
+        text: textPayload,
         role: finalRole,
         intent: finalIntent,
         score: relationScore
       }, (chunk) => {
-
-        console.log('[DEBUG] Received chunk.');
-
         accumulatedText += chunk;
-        const plans = parseStreamToPlans(accumulatedText);
-        if (plans.length > 0) {
-          console.log('[DEBUG] Setting results.');
-         
-          setResults(plans);
-          setStatusText('师爷正在挥毫...');
+
+        // --- 动态提示 ---
+        if (accumulatedText.includes('【回复】')) setStatusText('师爷正在润色...');
+        else if (accumulatedText.includes('【心法】')) setStatusText('师爷正在推敲心法...');
+        else if (accumulatedText.includes('【标题】')) setStatusText('师爷正在拟定计策...');
+
+        // --- 🔥 核心修复：节流 (Throttle) ---
+        // 只有距离上次更新超过 100ms，才更新界面，防止卡死
+        const now = Date.now();
+        if (now - lastUpdateRef.current > 100 || chunk.includes('PLAN_END')) {
+            const plans = parseStreamToPlans(accumulatedText);
+            if (plans.length > 0) {
+                setResults(plans);
+            }
+            lastUpdateRef.current = now;
         }
       }, controller.signal);
-      console.log('[DEBUG] getAIResponse finished.');
-     // <--- ✅ 关键：把信号传进去
+
+      // 5. 结束后确保最后一次更新
+      const finalPlans = parseStreamToPlans(accumulatedText);
+      if (finalPlans.length > 0) setResults(finalPlans);
+
     } catch (e: any) {
-      // --- 6. 错误处理 ---
-      // 如果是手动中断(AbortError)，说明是用户点了第二次，这种不算错误，忽略即可
       if (e.name !== 'AbortError') {
-        console.error('[DEBUG] Error in getAIResponse:', e);
         console.error(e);
-        alert("师爷暂歇，请稍后再试");
-        setShowResults(false);
+        setErrorMsg("网络波动，师爷暂歇。请检查网络或稍后再试。"); // 设置错误信息
+        setLoading(false); 
       }
-    
     } finally {
-      // --- 7. 结束加载状态 ---
-      // 只有当当前控制器仍然是本次的控制器时，才结束Loading
-      // 这里的逻辑是防止：你点了第二次，导致第一次的 finally 触发，把第二次的 loading 误关了
       if (abortControllerRef.current === controller) {
-        console.log('[DEBUG] Finalizing generation.');
         setLoading(false);
         abortControllerRef.current = null;
       }

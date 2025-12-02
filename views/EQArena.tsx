@@ -27,6 +27,7 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
   
   const [currentMood, setCurrentMood] = useState(50);
   const [currentOS, setCurrentOS] = useState<string>("（正在观察你的反应...）");
+  const [moodChange, setMoodChange] = useState<number | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const currentLevel = ARENA_LEVELS[currentLevelIdx];
@@ -49,6 +50,25 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isTyping, currentOS]);
+
+
+  
+  const handleSafeBack = () => {
+    // 如果游戏还没结束，且聊天记录超过2条（说明已经开始玩了），则弹窗确认
+    if (!gameOver && chatHistory.length > 2) {
+      // 浏览器自带的原生确认框
+      if (window.confirm('大侠，对局尚未结束，确定要退出江湖吗？')) {
+        onBack();
+      }
+    } else {
+      // 没开始玩或者已经结束，直接退出
+      onBack();
+    }
+  };
+
+
+
+
 
   const handleSend = async () => {
     if (!inputText.trim() || gameOver || isTyping) return;
@@ -73,6 +93,17 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
     ).then(judgeResult => {
       if (judgeResult) {
         // 静默更新好感度
+        // 1. 计算分差
+        const diff = judgeResult.mood - currentMood;
+        
+        // 2. 如果分数有变化，触发飘字动画
+        if (diff !== 0) {
+          setMoodChange(diff);
+          // 2秒后自动消失
+          setTimeout(() => setMoodChange(null), 2000);
+        }
+        
+        // 3. 更新实际分数
         setCurrentMood(judgeResult.mood);
 
         if (judgeResult.isGameOver) {
@@ -181,7 +212,7 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
 
   return (
     <div className="h-screen flex flex-col bg-ancient font-serif relative overflow-hidden">
-      <Header title={currentLevel.title} onBack={onBack} />
+      <Header title={currentLevel.title} onBack={handleSafeBack} />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-paper border-b-2 border-ink shadow-sm z-10 flex flex-col">
@@ -194,7 +225,21 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
                 style={{ width: `${Math.max(0, Math.min(100, currentMood))}%` }}
               ></div>
             </div>
-            <span className="text-xs font-bold text-ink w-6 text-right">{currentMood}</span>
+            <div className="relative w-6 text-right">
+              {/* 飘字动画：绝对定位在头顶 */}
+              {moodChange !== null && (
+                <div 
+                  className={`absolute -top-8 right-0 text-xl font-black animate-bounce transition-colors duration-300 whitespace-nowrap pointer-events-none
+                  ${moodChange > 0 ? 'text-green-600' : 'text-cinnabar'}`}
+                >
+                  {moodChange > 0 ? '+' : ''}{moodChange}
+                </div>
+              )}
+              {/*原本的分数*/}
+              <span className="text-xs font-bold text-ink transition-all duration-300">
+                {currentMood}
+              </span>
+            </div>
           </div>
           <div className="px-4 py-2 bg-ink/5 border-t border-dashed border-stone-300 flex items-start gap-2">
             <BrainCircuit size={16} className="text-stone-500 mt-0.5 shrink-0" />

@@ -7,8 +7,20 @@ export const runtime = 'edge';
 // 硅基流动 (SiliconFlow) API 配置
 const API_URL = "https://api.siliconflow.cn/v1/chat/completions";
 const MODEL_NAME = process.env.MODEL_NAME || "deepseek-ai/DeepSeek-V3.1-Terminus";
+const rateLimitMap = new Map<string, number>();
 
 export async function POST(req: NextRequest) {
+
+  const ip = req.headers.get('x-forwarded-for') || 'unknown';
+  const now = Date.now();
+  const lastRequestTime = rateLimitMap.get(ip) || 0;
+  
+  // 限制：同一 IP 3秒内只能请求一次
+  if (now - lastRequestTime < 3000) {
+    return new Response(JSON.stringify({ error: "操作太快了，请喝口茶歇歇" }), { status: 429 });
+  }
+  rateLimitMap.set(ip, now);
+  
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {

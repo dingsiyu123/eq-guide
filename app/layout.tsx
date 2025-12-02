@@ -5,8 +5,27 @@ import './globals.css';
 import Footer from '../components/Footer';
 
 export const metadata: Metadata = {
-  title: '人情世故指南',
-  description: '基于AI的线上/线下沟通场景辅助工具，强调中国式人情世故的解决方案。',
+  // 1. 浏览器标签页显示的标题
+  title: '人情世故指南 - 中国式高情商社交军师',
+  
+  // 2. 搜索引擎和分享时的描述
+  description: '专为中国人打造的 人情世故 AI 社交军师。全方位覆盖“线上嘴替”与“线下救场”。基于 AI 大模型，教你懂分寸、知进退，轻松拿捏职场与生活中的人情世故。',
+  
+  // 3. 关键词，有助于SEO
+  keywords: ['高情商', '人情世故', '话术', '微信回复', '职场社交', '饭局应酬', 'AI助手', '无需注册'],
+  
+  authors: [{ name: 'Ding Siyu' }],
+  
+  // 4. 核心配置：微信/朋友圈/Twitter 分享卡片
+  openGraph: {
+    title: '人情世故指南 - 你的中国式高情商社交救星', // 分享卡片的大标题
+    description: '深谙中国式人情世故的高情商AI军师。，线上线下全覆盖，3秒生成，无需注册，即刻破局，看透人心。', // 分享卡片的小字
+    url: 'https://www.ask-shiye.com', // 
+    siteName: '人情世故指南',
+    locale: 'zh_CN',
+    type: 'website',
+    // images: ['/share-card.png'], // (可选) 如果你有做好的宣传图，放在 public 目录下并在这里填文件名
+  },
 };
 
 export default function RootLayout({
