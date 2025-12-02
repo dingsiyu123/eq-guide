@@ -57,7 +57,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           </div>
           <div className="text-left flex-1">
             <h2 className="text-xl font-bold font-serif text-ink">线下救场</h2>
-            <p className="text-xs text-stone-600 font-serif">酒局应酬 · 控场之术</p>
+            <p className="text-xs text-stone-600 font-serif">现场锦囊 · 人情往来</p>
           </div>
           <div className="text-cinnabar font-serif opacity-50">贰</div>
         </button>

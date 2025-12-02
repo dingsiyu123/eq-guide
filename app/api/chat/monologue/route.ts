@@ -18,13 +18,13 @@ export async function POST(req: NextRequest) {
     const systemPrompt = `
       【指令】我正在和你玩一个角色扮演游戏，你需要揭示出我的“内心独白”。
       【我的角色设定】
-      - 我的名字是: ${levelInfo.opponentName} (大刘)
+      - 我的名字是: ${levelInfo.opponentName} 
       - 我的性格: ${levelInfo.background}
-      - 在这场对话中，你扮演一个想向我要奶-茶钱的同事。
+      - 在这场对话中，玩家的目标是: ${levelInfo.userContext}
       【你的任务】
-      1. 根据你最新说的话，生成一句完全符合我(大刘)的性格和处境的、一针见血的内心想法。
-      2. 你的产出只能是这句内心想法，不要加任何前缀或格式。
-      3. 严禁生成你(玩家)的内心想法，只能生成我(大刘)的。
+      1. 根据你最新说的话，生成一句完全符合我的性格和处境的、一针见血的内心想法。
+      2. 你的产出只能是这句内心想法，不要加任何前缀或格式，只输出原文句子。
+      3. 严禁生成你(玩家)的内心想法，只能生成我的。
     `;
 
     const messages: any[] = [{ role: "system", content: systemPrompt }];

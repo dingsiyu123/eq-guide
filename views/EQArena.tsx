@@ -215,7 +215,7 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
                           if (isNotification) {
                             return (
                               <div key={idx} className="py-2 my-2 flex justify-center items-center animate-[fadeIn_0.5s_ease-out]">
-                                <span className="text-xs text-stone-500 bg-stone-200/80 px-4 py-1.5 rounded-full shadow-inner">
+                                <span className="text-sm text-stone-500 bg-stone-200/80 px-4 py-1.5 rounded-full shadow-inner">
                                   {msg.text.replace('【通知】', '')}
                                 </span>
                               </div>
