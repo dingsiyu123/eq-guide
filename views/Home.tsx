@@ -17,7 +17,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <div className="absolute inset-5 border border-ink opacity-30 pointer-events-none z-10"></div>
       
       {/* 标题区 */}
-      <div className="mt-20 mb-16 relative z-20 text-center">
+      <div className="mt-12 mb-10 lg:mt-20 lg:mb-16 relative z-20 text-center">
         <div className="w-16 h-24 bg-cinnabar/10 absolute -left-4 -top-4 -z-10 rounded-sm"></div>
         <h1 className="text-6xl font-serif font-black text-ink mb-2 tracking-widest writing-vertical-rl mx-auto leading-tight" style={{ writingMode: 'horizontal-tb' }}>
           人情<br/>世故<br/>指南
@@ -74,7 +74,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </div>
 
       {/* 底部注脚区域 (交互式) */}
-      <div className="mt-16 mb-8 flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition-opacity duration-500 z-20">
+      <div className="mt-12 mb-8 lg:mt-16 flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition-opacity duration-500 z-20">
         <div className="text-[10px] font-serif tracking-[0.2em] text-stone-500 text-center leading-loose">
           <p>乙巳年 · 赛博出版</p>
           
