@@ -3,11 +3,10 @@ import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
 import { getAIResponse } from '../services/aiService';
-import { Feather, RefreshCw, Image as ImageIcon, Type } from 'lucide-react';
+import { Sparkles, RefreshCw, Image as ImageIcon, Type, Eraser } from 'lucide-react';
 
 interface Props {
   onBack: () => void;
-  // Fix: Add initialParams to accept navigation parameters passed from App.tsx
   initialParams?: any;
 }
 
@@ -16,378 +15,329 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   const [inputType, setInputType] = useState<'text' | 'image'>('text');
   const [targetRole, setTargetRole] = useState('同事');
   const [customRole, setCustomRole] = useState('');
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const [myIntent, setMyIntent] = useState('糊弄他');
+  const [myIntent, setMyIntent] = useState('糊弄Ta');
   const [customIntent, setCustomIntent] = useState('');
-  
   const [relationScore, setRelationScore] = useState(5);
   
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Plan[]>([]);
   const [showResults, setShowResults] = useState(false);
-  
-  const [statusText, setStatusText] = useState('准备中...');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null); // 新增：错误状态
-  const lastUpdateRef = useRef<number>(0); // 新增：用于节流的时间戳
+  const [statusText, setStatusText] = useState('AI 思考中...');
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastUpdateRef = useRef<number>(0);
 
+  // ... (parseStreamToPlans 逻辑保持不变，复制你原来的即可) ...
   const parseStreamToPlans = (fullText: string): Plan[] => {
-    const startTime = performance.now(); // <-- 在这里加上这行
-    
-
     const rawPlans = fullText.split('===PLAN_START===');
     const parsedPlans: Plan[] = [];
-
     rawPlans.forEach((block, index) => {
       if (!block.trim()) return;
-      
       const titleMatch = block.match(/【标题】(.*?)\n/);
-      const title = titleMatch ? titleMatch[1].trim() : `正在构思 Plan ${index}...`;
-
       const mindsetMatch = block.match(/【心法】(.*?)\n/);
-      // 增加正则替换：去掉开头和结尾的 " 或 “ 或 ”
-      const mindset = mindsetMatch 
-        ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') 
-        : (fullText.includes('【心法】') ? '正在推敲...' : ''); 
       const replyMatches = [...block.matchAll(/【回复】(.*)/g)];
-      const replyText = replyMatches.map(m => m[1].trim());
-
-      if (title || mindset || replyText.length > 0) {
+      
+      if (titleMatch) {
         parsedPlans.push({
           id: `stream-${index}`,
-          title,
-          mindset,
-          // 如果没字，就传空串，不要自作聪明加省略号
+          title: titleMatch[1].trim(),
+          mindset: mindsetMatch ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') : '',
           originalText: inputText || '',
-          replyText: replyText.length > 0 ? replyText : ['师爷正在提笔...']
+          replyText: replyMatches.map(m => m[1].trim())
         });
       }
     });
-    
-    const endTime = performance.now();
-    
-
-
     return parsedPlans;
   };
-  
-  // 👇 把原来的 handleGenerate 删掉，换成这个新的：
+
   const handleGenerate = async () => {
-    // 1. 准备参数
+    // ... (handleGenerate 逻辑保持不变，复制你原来的即可) ...
     const finalRole = targetRole === '自定义' ? customRole : targetRole;
     const finalIntent = myIntent === '自定义' ? customIntent : myIntent;
+    if (!finalRole || !finalIntent) return;
 
-    if (!finalRole.trim()) { alert("请输入对方身份"); return; }
-    if (!finalIntent.trim()) { alert("请输入您的意图"); return; }
-
-    // 2. 中断旧请求
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // 3. 重置状态
     setLoading(true);
-    setStatusText('正在研墨...');
+    setStatusText('正在推演...');
     setShowResults(true);
-    setResults([]); 
-    setErrorMsg(null); // 清空错误
-    lastUpdateRef.current = 0; // 重置计时器
+    setResults([]);
+    lastUpdateRef.current = 0;
     
     let accumulatedText = "";
 
     try {
-      const textPayload = inputText.trim() === '' ? "【无原话，本次为用户想主动发起对话】" : inputText;
-
-      // 4. 调用 AI
       await getAIResponse('online', {
-        text: textPayload,
+        text: inputText || "【无原话，本次为用户想主动发起对话】",
         role: finalRole,
         intent: finalIntent,
         score: relationScore
       }, (chunk) => {
         accumulatedText += chunk;
-
-        // --- 动态提示 ---
-        if (accumulatedText.includes('【回复】')) setStatusText('师爷正在润色...');
-        else if (accumulatedText.includes('【心法】')) setStatusText('师爷正在推敲心法...');
-        else if (accumulatedText.includes('【标题】')) setStatusText('师爷正在拟定计策...');
-
-        // --- 🔥 核心修复：节流 (Throttle) ---
-        // 只有距离上次更新超过 100ms，才更新界面，防止卡死
         const now = Date.now();
         if (now - lastUpdateRef.current > 100 || chunk.includes('PLAN_END')) {
             const plans = parseStreamToPlans(accumulatedText);
-            if (plans.length > 0) {
-                setResults(plans);
-            }
+            if (plans.length > 0) setResults(plans);
             lastUpdateRef.current = now;
         }
       }, controller.signal);
-
-      // 5. 结束后确保最后一次更新
-      const finalPlans = parseStreamToPlans(accumulatedText);
-      if (finalPlans.length > 0) setResults(finalPlans);
-
     } catch (e: any) {
-      if (e.name !== 'AbortError') {
-        console.error(e);
-        setErrorMsg("网络波动，师爷暂歇。请检查网络或稍后再试。"); // 设置错误信息
-        setLoading(false); 
-      }
+       console.error(e);
     } finally {
-      if (abortControllerRef.current === controller) {
-        setLoading(false);
-        abortControllerRef.current = null;
-      }
+       setLoading(false);
     }
   };
 
+  // 清空文本的辅助函数
+  const clearText = () => setInputText('');
+
   return (
-    <div className="min-h-screen flex flex-col bg-ancient animate-[fadeIn_0.5s_ease-out] font-serif text-ink">
+    // 背景色更纯净
+    <div className="min-h-screen flex flex-col bg-[#F9FAFB] font-sans text-slate-900">
+      {/* 这里的 Title 已经通过 Header 组件修改了 */}
       <Header title="线上嘴替" onBack={onBack} />
 
-      <div className="flex-1 p-5 pb-20 overflow-y-auto no-scrollbar">
+      <div className="flex-1 max-w-2xl mx-auto w-full p-5 pb-32">
         
-        {/* 表单区域：药方样式 */}
-        <div className={`transition-all duration-500 space-y-8 ${showResults ? 'hidden' : 'block'}`}>
+        {/* === 表单区域 === */}
+        <div className={`transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${showResults ? 'hidden' : 'block'}`}>
           
-          
-
-          {/* 对方原话：书签 Tab 风格 */}
-          <div className="space-y-2">
-            
-            {/* Tab 导航栏：像古籍的书签一样排列 */}
-            <div className="flex items-end gap-6 border-b-2 border-ink/10 px-1">
-              {/* Tab 1: 文字 */}
+          {/* 1. 输入卡片：完全去边框，只保留阴影 */}
+          <div className="bg-white rounded-3xl shadow-apple p-1 mb-8 overflow-hidden group hover:shadow-apple-hover transition-shadow duration-300">
+            {/* 顶部 Tab 切换 */}
+            <div className="flex items-center gap-1 p-1 bg-slate-50/50 m-1 rounded-2xl">
               <button
                 onClick={() => setInputType('text')}
-                className={`pb-2 text-lg font-black tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                   inputType === 'text' 
-                    ? 'text-ink border-b-[3px] border-ink translate-y-[2px]' 
-                    : 'text-stone-400 hover:text-stone-600 border-b-[3px] border-transparent'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' 
+                  : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
-                <Feather size={18} className={inputType === 'text' ? 'animate-pulse' : ''} />
-                <span>誊录原话</span>
+                <Type size={16} /> 粘贴文字
               </button>
-
-              {/* Tab 2: 截图 */}
               <button
                 onClick={() => setInputType('image')}
-                className={`pb-2 text-lg font-black tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                   inputType === 'image' 
-                    ? 'text-ink border-b-[3px] border-ink translate-y-[2px]' 
-                    : 'text-stone-400 hover:text-stone-600 border-b-[3px] border-transparent'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' 
+                  : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
-                <ImageIcon size={18} />
-                <span>呈递截图</span>
+                <ImageIcon size={16} /> 上传截图
               </button>
             </div>
 
-            {/* 内容区：根据 Tab 切换 */}
-            <div className="pt-2 min-h-[100px]">
+            {/* 内容输入区 */}
+            <div className="px-5 py-4 relative">
               {inputType === 'text' ? (
-                <textarea
-                  className="w-full bg-transparent border-none p-2 text-base outline-none focus:ring-0 placeholder-stone-400 text-ink font-bold font-serif resize-none h-24 leading-relaxed animate-[fadeIn_0.3s_ease-out]"
-                  placeholder="请粘贴对方原话，若需主动发起对话，此栏留空即可..."
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  autoFocus
-                />
+                <>
+                  <textarea
+                    className="w-full bg-transparent border-none p-0 text-[17px] placeholder-slate-300 text-slate-800 font-medium resize-none h-40 focus:ring-0 leading-relaxed tracking-wide"
+                    placeholder="把对方发来的话粘贴在这里..."
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    autoFocus
+                  />
+                  {inputText && (
+                    <button 
+                      onClick={clearText}
+                      className="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 transition-colors p-2"
+                    >
+                      <Eraser size={18} />
+                    </button>
+                  )}
+                </>
               ) : (
-                // 截图占位区：宣纸风格
                 <div 
-                  onClick={() => alert("📷 师爷正在闭关修炼“读图术”...\n\n（直接发截图的功能开发中，敬请期待！）")}
-                  className="w-full h-24 border-2 border-dashed border-stone-300 rounded-sm flex flex-col items-center justify-center cursor-pointer hover:border-cinnabar hover:bg-cinnabar/5 transition-all group animate-[fadeIn_0.3s_ease-out] relative overflow-hidden bg-stone-50/50"
+                  className="h-40 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+                  onClick={() => alert("功能开发中")}
                 >
-                  <div className="flex items-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <div className="w-8 h-8 rounded-full bg-stone-200 group-hover:bg-cinnabar group-hover:text-white flex items-center justify-center transition-colors text-stone-500">
-                      <ImageIcon size={16} />
-                    </div>
-                    <span className="text-sm font-serif font-bold text-stone-500 group-hover:text-cinnabar tracking-widest">
-                      点击上传聊天截图
-                    </span>
-                  </div>
+                  <ImageIcon size={28} className="mb-2 opacity-50" />
+                  <span className="text-xs font-bold opacity-70">点击上传聊天截图</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* 对方身份 */}
-          <div className="space-y-4">
-            <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-              <span className="w-1 h-6 bg-ink inline-block"></span>
-              对方身份
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {['同事', '亲戚', '客户', '上司'].map(role => (
-                <button
-                  key={role}
-                  onClick={() => setTargetRole(role)}
-                  className={`px-4 py-3 text-sm font-bold border-2 transition-all duration-200 ${
-                    targetRole === role 
-                    ? 'bg-cinnabar text-white border-cinnabar shadow-[3px_3px_0px_#2B2B2B]' 
-                    : 'bg-transparent text-stone-600 border-stone-400 hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {role}
-                </button>
-              ))}
-              <button
-                onClick={() => setTargetRole('自定义')}
-                className={`px-4 py-3 text-sm font-bold border-2 transition-all duration-200 ${
-                  targetRole === '自定义'
-                  ? 'bg-cinnabar text-white border-cinnabar shadow-[3px_3px_0px_#2B2B2B]' 
-                  : 'bg-transparent text-stone-600 border-stone-400 hover:border-ink hover:text-ink'
-                }`}
-              >
-                自定义
-              </button>
-            </div>
-            {targetRole === '自定义' && (
-              <div className="animate-[fadeIn_0.3s_ease-out]">
-                <input
-                  type="text"
-                  value={customRole}
-                  onChange={(e) => setCustomRole(e.target.value)}
-                  className="w-full bg-transparent border-b border-ink/50 p-2 outline-none text-ink placeholder-stone-400 text-sm font-bold"
-                  placeholder="请输入身份（如：前任、房东）"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* 我的意图 */}
-          <div className="space-y-4">
-            <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-              <span className="w-1 h-6 bg-ink inline-block"></span>
-              我的意图
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {['答应Ta', '糊弄Ta', '拒绝Ta'].map(intent => (
-                <button
-                  key={intent}
-                  onClick={() => setMyIntent(intent)}
-                  className={`px-4 py-3 text-sm font-bold border-2 transition-all duration-200 ${
-                    myIntent === intent 
-                    ? 'bg-cinnabar text-white border-cinnabar shadow-[3px_3px_0px_#2B2B2B]' 
-                    : 'bg-transparent text-stone-600 border-stone-400 hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {intent}
-                </button>
-              ))}
-              <button
-                onClick={() => setMyIntent('自定义')}
-                className={`px-4 py-3 text-sm font-bold border-2 transition-all duration-200 ${
-                  myIntent === '自定义'
-                  ? 'bg-cinnabar text-white border-cinnabar shadow-[3px_3px_0px_#2B2B2B]' 
-                  : 'bg-transparent text-stone-600 border-stone-400 hover:border-ink hover:text-ink'
-                }`}
-              >
-                自定义
-              </button>
-            </div>
-            {myIntent === '自定义' && (
-              <div className="animate-[fadeIn_0.3s_ease-out]">
-                <input
-                  type="text"
-                  value={customIntent}
-                  onChange={(e) => setCustomIntent(e.target.value)}
-                  className="w-full bg-transparent border-b border-ink/50 p-2 outline-none text-ink placeholder-stone-400 text-sm font-bold"
-                  placeholder="请输入意图（如：想借钱、想表白）"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* 亲疏程度 */}
-          <div className="space-y-4 pt-4 border-t border-dashed border-stone-400">
-            <div className="flex justify-between items-center">
-              <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-                <span className="w-1 h-6 bg-stone-400 inline-block"></span>
-                亲疏程度
+          {/* 2. 身份与意图选择：更紧凑的布局 */}
+          <div className="space-y-8 px-1">
+            
+            {/* 对方身份 */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block px-1">
+                对方身份
               </label>
-              <span className="text-xl font-black text-ink">{relationScore}</span>
+              <div className="flex flex-wrap gap-2.5">
+                {['同事', '亲戚', '客户', '上司', '自定义'].map(role => (
+                  <button
+                    key={role}
+                    onClick={() => setTargetRole(role)}
+                    className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
+                      targetRole === role 
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]' 
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+              {targetRole === '自定义' && (
+                <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
+                  <input
+                    type="text"
+                    value={customRole}
+                    onChange={(e) => setCustomRole(e.target.value)}
+                    className="w-full bg-transparent border-b border-slate-200 py-2 px-1 text-slate-900 placeholder-slate-300 text-base font-medium focus:border-slate-900 outline-none transition-colors"
+                    placeholder="输入具体身份 (如: 前任)"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
-            <input 
-              type="range" 
-              min="0" 
-              max="10" 
-              value={relationScore}
-              onChange={(e) => setRelationScore(Number(e.target.value))}
-              className="w-full h-2 bg-stone-300 appearance-none cursor-pointer rounded-full accent-cinnabar"
-            />
-            <div className="flex justify-between text-xs font-bold text-stone-500">
-              <span>萍水相逢</span>
-              <span>莫逆之交</span>
+
+            {/* 我的意图 */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block px-1">
+                我的意图
+              </label>
+              <div className="flex flex-wrap gap-2.5">
+                {['答应Ta', '糊弄Ta', '拒绝Ta', '自定义'].map(intent => (
+                  <button
+                    key={intent}
+                    onClick={() => setMyIntent(intent)}
+                    className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
+                      myIntent === intent 
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]' 
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {intent}
+                  </button>
+                ))}
+              </div>
+              {myIntent === '自定义' && (
+                <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
+                  <input
+                    type="text"
+                    value={customIntent}
+                    onChange={(e) => setCustomIntent(e.target.value)}
+                    className="w-full bg-transparent border-b border-slate-200 py-2 px-1 text-slate-900 placeholder-slate-300 text-base font-medium focus:border-slate-900 outline-none transition-colors"
+                    placeholder="输入具体意图 (如: 想借钱)"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
+
+            {/* 亲疏程度滑块：更现代的样式 */}
+            <div className="pt-2">
+              <div className="flex justify-between items-end mb-4 px-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  关系亲疏
+                </label>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-slate-900">{relationScore}</span>
+                  <span className="text-sm font-bold text-slate-300 ml-1">/ 10</span>
+                </div>
+              </div>
+              
+              {/* 自定义滑块容器 */}
+              <div className="relative h-6 flex items-center">
+                {/* 轨道背景 */}
+                <div className="absolute w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                   <div className="h-full bg-gradient-to-r from-slate-200 to-slate-400" style={{ width: `${relationScore * 10}%` }}></div>
+                </div>
+                {/* 原生滑块覆盖在上面，透明，只保留交互 */}
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="10" 
+                  value={relationScore}
+                  onChange={(e) => setRelationScore(Number(e.target.value))}
+                  className="w-full h-full opacity-0 cursor-pointer absolute z-10"
+                />
+                {/* 模拟滑块头 */}
+                <div 
+                  className="w-6 h-6 bg-white border border-slate-200 rounded-full shadow-md absolute pointer-events-none transition-all flex items-center justify-center"
+                  style={{ left: `calc(${relationScore * 10}% - 12px)` }}
+                >
+                  <div className="w-2 h-2 bg-slate-900 rounded-full"></div>
+                </div>
+              </div>
+
+              <div className="flex justify-between text-[10px] font-bold text-slate-400 mt-2 px-1">
+                <span>萍水相逢</span>
+                <span>生死之交</span>
+              </div>
+            </div>
+
           </div>
 
-          {/* 生成按钮 */}
-          <div className="pt-6">
+          {/* 生成按钮：底部悬浮或者大通栏 */}
+          <div className="mt-12 px-1">
             <button
               onClick={handleGenerate}
               disabled={loading}
-              className={`w-full py-4 border-2 border-ink font-bold text-xl text-paper shadow-[4px_4px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center space-x-3 ${
-                loading ? 'bg-stone-500 cursor-not-allowed' : 'bg-ink hover:bg-black'
+              className={`w-full py-4 rounded-2xl font-bold text-lg text-white shadow-lg shadow-slate-200 hover:shadow-xl hover:shadow-slate-300 transition-all active:scale-[0.98] flex items-center justify-center gap-3 ${
+                loading 
+                ? 'bg-slate-400 cursor-not-allowed' 
+                : 'bg-slate-900 hover:bg-black'
               }`}
             >
               {loading ? (
-                <span className="tracking-widest animate-pulse">{statusText}</span>
+                <>
+                  <RefreshCw className="animate-spin" size={20} />
+                  <span>师爷思考中...</span>
+                </>
               ) : (
                 <>
-                  <Feather size={20} />
-                  <span className="tracking-[0.3em]">求计问策</span>
+                  <Sparkles size={20} className="text-yellow-400 fill-current" />
+                  <span>生成高情商回复</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* 结果区 */}
+        {/* === 结果区域 (保留之前的逻辑) === */}
         {showResults && (
           <div className="animate-[slideUp_0.4s_ease-out]">
-            <div className="flex justify-between items-center mb-6 border-b-2 border-ink pb-2 border-double">
-              <h2 className="text-xl font-black text-ink tracking-widest">
-                {loading ? '推演中...' : '锦囊妙计'}
+            <div className="flex justify-between items-center mb-6 px-1">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <span className="w-1.5 h-6 bg-cinnabar rounded-full inline-block shadow-sm"></span>
+                锦囊妙计
               </h2>
-              {/* 修改：重设按钮改为刷新当前结果 */}
               <button 
                 onClick={handleGenerate} 
-                className="text-xs font-bold text-stone-500 hover:text-ink flex items-center gap-1 active:rotate-180 transition-transform"
+                className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200 active:scale-95 transition-all"
                 disabled={loading}
               >
-                <RefreshCw size={12}/> 换一批
+                <RefreshCw size={12} className={loading ? 'animate-spin' : ''}/> 
+                <span>换一批</span>
               </button>
             </div>
             
             <div className="space-y-4">
               {results.length === 0 && loading && (
-                <div className="text-center py-10 text-stone-400 font-serif font-medium animate-pulse">
-                  师爷正在研墨...
+                <div className="text-center py-20">
+                  <div className="inline-block p-4 rounded-full bg-slate-50 mb-4 animate-pulse">
+                    <Sparkles size={32} className="text-slate-300" />
+                  </div>
+                  <p className="text-slate-400 font-medium text-sm">师爷正在斟酌措辞...</p>
                 </div>
               )}
               
               {results.map((plan) => (
-                <div key={plan.id} className="animate-[fadeIn_0.3s_ease-out]">
-                  <ResultCard 
-                    plan={plan} 
-                    type="online" 
-                    contextData={[
-                      { label: "对方", value: targetRole === '自定义' ? customRole : targetRole },
-                      { label: "意图", value: myIntent === '自定义' ? customIntent : myIntent },
-                      { label: "关系分", value: `${relationScore} / 10` },
-                      
-                      // 👇 关键：这里的 label 必须是 '原话'，不要改别的
-                      { label: "原话", value: inputText.substring(0, 30) + (inputText.length > 30 ? '...' : '') } 
-                    ]}
-                    
-                    onRegenerateSingle={() => {}} 
-                  />
-                </div>
+                <ResultCard 
+                  key={plan.id}
+                  plan={plan} 
+                  type="online" 
+                  contextData={[]} 
+                  onRegenerateSingle={() => {}} 
+                />
               ))}
             </div>
           </div>

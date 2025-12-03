@@ -1,182 +1,193 @@
-// components/ResultCard.tsx
 import React, { useState, memo } from 'react';
-import { ChevronDown, ChevronUp, Copy, Share2, X } from 'lucide-react';
+import { ChevronDown, Copy, Share2, Sparkles, User, X, Loader2 } from 'lucide-react';
 import { Plan } from '../types';
-import { generatePoster } from '../utils/posterGenerator';
+import { generatePoster } from '../utils/posterGenerator'; // 引入新的 Generator
 
 interface ResultCardProps {
   plan: Plan;
   type: 'online' | 'offline';
-  contextData?: { label: string; value: string }[]; 
+  contextData?: { label: string; value: string }[];
   onRegenerateSingle: (id: string) => void;
 }
 
 const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], onRegenerateSingle }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  
+  // 海报相关状态
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareImage, setShareImage] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     let content = "";
-    const contextStr = contextData.map(c => `${c.label}: ${c.value}`).join('\n');
-    
     if (type === 'online' && plan.replyText) {
-      content = `【局势】\n${contextStr}\n\n【师爷锦囊】\n${plan.replyText.join('\n')}\n\n👉 问师爷: ask-shiye.com`;
+      content = plan.replyText.join('\n');
     } else if (type === 'offline' && plan.steps) {
-      content = `【局势】\n${contextStr}\n\n【师爷锦囊】\n${plan.steps.map(s => `${s.keyword}: ${s.description}`).join('\n')}\n\n👉 问师爷: ask-shiye.com`;
+      content = plan.steps.map(s => `${s.keyword}: ${s.description}`).join('\n');
     }
     navigator.clipboard.writeText(content);
-    alert("锦囊已收入囊中（已复制）");
+    alert("已复制到剪贴板");
   };
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowShareModal(true);
     
+    // 如果已经生成过，就不重新生成了
     if (shareImage) return;
 
-    setGenerating(true);
-
+    setIsGenerating(true);
     try {
-      const imageURL = await generatePoster(plan, type, contextData);
-      setShareImage(imageURL);
+      // 调用新的 Canvas 生成器
+      const imgUrl = await generatePoster(plan, type, contextData);
+      setShareImage(imgUrl);
     } catch (error) {
-      console.error("海报生成失败", error);
-      alert("生成失败，请直接截屏");
+      console.error('海报生成失败:', error);
+      alert('生成失败，请重试');
+      setShowShareModal(false);
     } finally {
-      setGenerating(false);
+      setIsGenerating(false);
     }
   };
 
+  const titleMatch = plan.title.match(/(Plan\s*[A-Z0-9]+)[:：]?\s*(.*)/i);
+  const planTag = titleMatch ? titleMatch[1].toUpperCase() : null; 
+  const mainTitle = titleMatch ? titleMatch[2] : plan.title;
+
   return (
     <>
-      <div 
-        className={`bg-white mb-6 transition-all duration-300 relative border-[1.5px] border-ink shadow-[4px_4px_0px_#2B2B2B] ${
-          isExpanded ? 'translate-x-[2px] translate-y-[2px] shadow-none' : ''
-        }`}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {/* 🔥 保留你原来的卡片头部 */}
-        <div className="p-5 cursor-pointer relative z-10 bg-paper">
-          <div className="flex justify-between items-start">
-            <div className="flex-1 pr-4">
-              <h3 className="font-serif font-black text-xl text-ink mb-3 tracking-widest border-b-[1.5px] border-cinnabar/20 inline-block pb-1">
-                {plan.title}
+      <div className="group bg-white rounded-2xl shadow-apple border border-slate-100 overflow-hidden mb-6 transition-all duration-300 hover:shadow-apple-hover">
+        
+        {/* 1. 卡片头部 */}
+        <div 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="px-5 py-4 cursor-pointer flex justify-between items-start bg-white/50 backdrop-blur-sm select-none"
+        >
+          <div className="flex-1 mr-4">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              {planTag && (
+                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-slate-900 text-white text-[11px] font-bold tracking-wide shadow-sm">
+                  {planTag}
+                </span>
+              )}
+              <h3 className="font-bold text-lg text-slate-900 tracking-tight leading-snug">
+                {mainTitle}
               </h3>
-              <div className="relative pl-4 border-l-[3px] border-cinnabar">
-                <p className="text-sm text-stone-600 font-serif font-bold leading-relaxed text-justify">
-                  {plan.mindset}
-                </p>
-              </div>
             </div>
-            <div className="text-ink opacity-50 mt-1">
-              {isExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
-            </div>
+
+            {!isExpanded && (
+              <p className="text-xs text-slate-400 line-clamp-1 animate-[fadeIn_0.3s_ease-out]">
+                “{plan.mindset}”
+              </p>
+            )}
+          </div>
+
+          <div className={`text-slate-300 transition-transform duration-300 mt-1 ${isExpanded ? 'rotate-180' : ''}`}>
+            <ChevronDown size={20} />
           </div>
         </div>
 
-        {/* 🔥 保留你原来的展开内容（气泡 + 步骤） */}
+        {/* 2. 展开内容区 */}
         {isExpanded && (
-          <div className="border-t-[1.5px] border-b-[1.5px] border-dashed border-ink/20 py-6 px-4 animate-[fadeIn_0.3s_ease-out] relative">
-            <div className="absolute inset-0 bg-paper/50 pointer-events-none"></div>
+          <div className="px-5 pb-5 animate-[fadeIn_0.2s_ease-out]">
+            <div className="h-px w-full bg-slate-100 mb-5"></div>
+            <div className="bg-slate-50/80 rounded-xl p-4 mb-6 border-l-[3px] border-cinnabar relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 opacity-5"><Sparkles size={40} /></div>
+              <div className="flex gap-3 items-start relative z-10">
+                <Sparkles size={16} className="text-cinnabar mt-0.5 shrink-0" />
+                <p className="text-sm text-slate-600 leading-relaxed text-justify font-medium">{plan.mindset}</p>
+              </div>
+            </div>
 
-            {/* 🎈 线上模式：对话气泡 */}
             {type === 'online' && (
-              <div className="space-y-6 relative z-10 font-serif">
-                 {/* 🔥 修改点：只有当有原话时，才显示对方气泡 */}
-                 {plan.originalText && (
-                   <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-ink text-paper flex items-center justify-center text-sm font-black border-[1.5px] border-ink rounded-sm shrink-0 shadow-sm">彼</div>
-                      <div className="bg-white text-ink px-4 py-3 rounded-md rounded-tl-none border-[1.5px] border-ink text-sm font-bold leading-relaxed shadow-sm relative max-w-[85%]">
-                        <span className="relative z-10">{plan.originalText}</span>
-                      </div>
-                   </div>
-                 )}
-                 
-                 {plan.replyText?.map((text, idx) => (
-                   <div key={idx} className="flex items-start gap-3 justify-end">
-                     <div className="bg-[#B5C99A] text-ink px-4 py-3 rounded-md rounded-tr-none border-[1.5px] border-ink text-sm font-bold leading-relaxed shadow-sm relative max-w-[85%] text-left group hover:-translate-y-0.5 transition-transform cursor-default">
-                        <span className="relative z-10">{text}</span>
-                     </div>
-                     <div className="w-10 h-10 bg-cinnabar text-paper flex items-center justify-center text-sm font-black border-[1.5px] border-ink rounded-sm shrink-0 shadow-sm">我</div>
-                   </div>
-                 ))}
+              <div className="space-y-5 font-sans px-1">
+                {plan.originalText && (
+                  <div className="flex items-end gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0 shadow-sm">
+                      <User size={14} />
+                    </div>
+                    <div className="bg-white border border-slate-100 text-slate-700 px-4 py-2.5 rounded-2xl rounded-bl-none text-[15px] font-medium leading-relaxed max-w-[85%] shadow-sm">
+                      {plan.originalText}
+                    </div>
+                  </div>
+                )}
+                {plan.replyText?.map((text, idx) => (
+                  <div key={idx} className="flex items-end gap-2.5 justify-end">
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white px-4 py-2.5 rounded-2xl rounded-br-none text-[15px] font-medium leading-relaxed max-w-[85%] shadow-md shadow-slate-200">
+                      {text}
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white shrink-0 shadow-sm">
+                      <span className="text-[10px] font-bold">我</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* 📋 线下模式：步骤拆解 */}
             {type === 'offline' && (
-               <div className="space-y-6 mt-2 relative z-10 font-serif">
-                 {plan.steps?.map((step, idx) => (
-                   <div key={idx} className="flex gap-4">
-                     <div className="flex-shrink-0 w-12 h-12 border-[1.5px] border-ink flex items-center justify-center text-2xl bg-paper shadow-sm rounded-sm">
-                       {step.icon}
-                     </div>
-                     <div>
-                       <h4 className="font-serif font-bold text-lg text-ink">{step.keyword}</h4>
-                       <p className="text-sm text-stone-600 leading-relaxed mt-1 font-serif text-justify border-l-[1.5px] border-stone-300 pl-3">
-                         {step.description}
-                       </p>
-                     </div>
-                   </div>
-                 ))}
-               </div>
+              <div className="space-y-3">
+                {plan.steps?.map((step, idx) => (
+                  <div key={idx} className="flex gap-4 p-3.5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex-shrink-0 w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-xl shadow-inner">
+                      {step.icon}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 mb-1 flex items-center gap-2">
+                        <span className="text-slate-300 font-serif text-xs italic">0{idx + 1}</span>
+                        {step.keyword}
+                      </h4>
+                      <p className="text-sm text-slate-500 leading-relaxed text-justify">{step.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
-            {/* 🔥 按钮区 */}
-            <div className="mt-8 flex gap-2 relative z-10">
-               <button 
-                 onClick={handleCopy}
-                 className="flex-1 py-3 bg-cinnabar text-paper border-[1.5px] border-ink font-serif font-black tracking-[0.2em] text-lg flex items-center justify-center gap-2 hover:bg-[#8A2525] transition-all shadow-[2px_2px_0px_#2B2B2B] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none rounded-sm group"
-               >
-                 <Copy size={18} className="group-active:scale-90 transition-transform" /> 
-                 <span>收入囊中</span>
-               </button>
-
-               <button 
-                 onClick={handleShare}
-                 className="w-14 bg-white text-ink border-[1.5px] border-ink flex items-center justify-center hover:bg-stone-100 transition-all shadow-[2px_2px_0px_#2B2B2B] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none rounded-sm"
-                 title="生成海报"
-               >
-                 <Share2 size={20} />
-               </button>
+            <div className="mt-8 flex gap-3">
+              <button onClick={handleCopy} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-sm">
+                <Copy size={16} /> <span>复制锦囊</span>
+              </button>
+              <button onClick={handleShare} className="px-5 py-3 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-sm">
+                <Share2 size={16} />
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* 分享弹窗 */}
+      {/* --- 全屏分享弹窗 --- */}
       {showShareModal && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]" 
           onClick={() => setShowShareModal(false)}
+          className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
         >
-          <div className="relative w-full max-w-sm flex flex-col items-center" onClick={e => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-[340px] flex flex-col items-center">
             
-            {generating ? (
-              <div className="bg-paper border-2 border-ink p-6 rounded-sm flex flex-col items-center gap-3 shadow-lg">
-                <div className="w-8 h-8 border-4 border-stone-300 border-t-cinnabar rounded-full animate-spin"></div>
-                <p className="text-ink font-serif font-bold animate-pulse">师爷正在研墨...</p>
-              </div>
-            ) : (
-              shareImage && (
-                <div className="flex flex-col items-center gap-4 animate-[slideUp_0.3s_ease-out] w-full">
-                  <div className="relative shadow-2xl border-4 border-white rounded-sm overflow-hidden">
-                    <img src={shareImage} alt="Share Poster" className="w-full h-auto max-h-[70vh] object-contain" />
-                  </div>
-                  <p className="text-white/80 text-xs font-serif tracking-widest bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">
-                    长按图片保存 · 发给朋友
-                  </p>
-                  <button 
-                    onClick={() => setShowShareModal(false)}
-                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors border border-white/20"
-                  >
-                    <X size={20} />
-                  </button>
+            <button 
+              onClick={() => setShowShareModal(false)}
+              className="absolute -top-10 right-0 w-8 h-8 rounded-full bg-white/10 text-white/80 flex items-center justify-center hover:bg-white/30 transition-all active:scale-90 z-50"
+            >
+              <X size={18} strokeWidth={2.5} />
+            </button>
+
+            <div className="relative shadow-2xl rounded-2xl overflow-hidden bg-white w-full min-h-[400px]">
+              {isGenerating ? (
+                <div className="absolute inset-0 z-20 bg-white flex flex-col items-center justify-center gap-3">
+                  <Loader2 size={32} className="animate-spin text-blue-600" />
+                  <p className="text-sm font-bold text-slate-600 animate-pulse">正在绘制海报...</p>
                 </div>
-              )
+              ) : (
+                shareImage && (
+                  <img src={shareImage} alt="Share Poster" className="w-full h-auto block animate-[fadeIn_0.3s_ease-out]" />
+                )
+              )}
+            </div>
+
+            {shareImage && !isGenerating && (
+              <p className="text-white/90 text-xs font-bold mt-5 bg-black/50 px-5 py-2.5 rounded-full backdrop-blur-md animate-bounce shadow-lg">
+                长按图片保存 · 发给朋友
+              </p>
             )}
           </div>
         </div>

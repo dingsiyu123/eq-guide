@@ -1,14 +1,12 @@
-
-import React, { useState, useEffect, useMemo , useRef} from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
 import { getAIResponse } from '../services/aiService';
-import { Wine, Mic, Handshake, Zap, Edit3, Feather, RefreshCw, Plus } from 'lucide-react';
+import { Wine, Mic, Handshake, Zap, Edit3, Sparkles, RefreshCw, Plus, ArrowRight } from 'lucide-react';
 
 interface Props {
   onBack: () => void;
-  // Fix: Add initialParams to accept navigation parameters passed from App.tsx
   initialParams?: any;
 }
 
@@ -16,10 +14,10 @@ interface Props {
 interface FieldConfig {
   key: string;
   label: string;
-  options?: string[]; // 文本输入模式下无选项
-  multi?: boolean;      // 是否多选
-  allowCustom?: boolean; // 是否允许自定义(选项模式下)
-  inputType?: 'select' | 'textarea'; // 输入类型
+  options?: string[]; 
+  multi?: boolean;
+  allowCustom?: boolean;
+  inputType?: 'select' | 'textarea';
 }
 
 // 场景定义
@@ -28,19 +26,19 @@ interface SceneDef {
   icon: React.ReactNode;
   title: string;
   desc: string;
+  color: string; // 新增：用于给图标加背景色
 }
 
 const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   const [step, setStep] = useState<'list' | 'form'>('list');
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
 
-  // 表单状态：值可以是字符串(单选)或字符串数组(多选)
+  // 表单状态
   const [formState, setFormState] = useState<Record<string, string | string[]>>({});
-  // 专门存储各字段的自定义输入值 map: { fieldKey: customValue }
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const abortControllerRef = useRef<AbortController | null>(null); 
   
-  const [supplement, setSupplement] = useState(''); // 补充信息
+  const [supplement, setSupplement] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Plan[]>([]);
@@ -48,51 +46,38 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   const [statusText, setStatusText] = useState('准备中...');
   const lastUpdateRef = useRef<number>(0);
 
-  // --- 场景定义 ---
+  // --- 场景定义 (增加配色) ---
   const SCENES: SceneDef[] = [
-    { id: '酒局', icon: <Wine size={24} strokeWidth={1.5} />, title: '酒桌应酬', desc: '敬酒 · 挡酒 · 怕失态' },
-    { id: '发言', icon: <Mic size={24} strokeWidth={1.5} />, title: '即兴发言', desc: '点名 · 婚礼 · 大脑空白' },
-    { id: '求人', icon: <Handshake size={24} strokeWidth={1.5} />, title: '求人办事', desc: '开口难 · 怕尴尬 · 送礼' },
-    { id: '尬聊', icon: <Zap size={24} strokeWidth={1.5} />, title: '破冰尬聊', desc: '聚会 · 电梯 · 沙龙' },
-    { id: '自定义', icon: <Edit3 size={24} strokeWidth={1.5} />, title: '自定义', desc: '疑难杂症 · 现场急救' }
+    { id: '酒局', icon: <Wine size={24} />, title: '酒桌应酬', desc: '敬酒 · 挡酒 · 怕失态', color: 'from-orange-400 to-red-500' },
+    { id: '发言', icon: <Mic size={24} />, title: '即兴发言', desc: '点名 · 婚礼 · 大脑空白', color: 'from-blue-400 to-indigo-500' },
+    { id: '求人', icon: <Handshake size={24} />, title: '求人办事', desc: '开口难 · 怕尴尬 · 送礼', color: 'from-emerald-400 to-teal-500' },
+    { id: '尬聊', icon: <Zap size={24} />, title: '破冰尬聊', desc: '聚会 · 电梯 · 沙龙', color: 'from-yellow-400 to-amber-500' },
+    { id: '自定义', icon: <Edit3 size={24} />, title: '自定义', desc: '疑难杂症 · 现场急救', color: 'from-slate-700 to-slate-900' }
   ];
 
-  // --- 动态字段生成逻辑 ---
+  // --- 动态字段生成逻辑 (保持不变) ---
   const currentFields = useMemo<FieldConfig[]>(() => {
     if (!selectedSceneId) return [];
-
     const commonProps = { allowCustom: true, inputType: 'select' as const };
 
     switch (selectedSceneId) {
       case '酒局':
         return [
           { 
-            key: 'role', 
-            label: '我的角色', 
-            options: ['主角/C位', '普通陪客', '蹭饭/小透明'],
-            multi: false,
-            ...commonProps
+            key: 'role', label: '我的角色', 
+            options: ['主角/C位', '普通陪客', '蹭饭/小透明'], multi: false, ...commonProps
           },
           { 
-            key: 'who', 
-            label: '在场有谁 (多选)', 
-            options: ['大领导/金主', '亲戚长辈', '同事/平辈', '下属/晚辈'], 
-            multi: true,
-            ...commonProps
+            key: 'who', label: '在场有谁', 
+            options: ['大领导/金主', '亲戚长辈', '同事/平辈', '下属/晚辈'], multi: true, ...commonProps
           },
           { 
-            key: 'intent', 
-            label: '核心意图 (多选)', 
-            options: ['得体敬酒', '巧妙挡酒', '借故早退', '活跃气氛'],
-            multi: true,
-            ...commonProps
+            key: 'intent', label: '核心意图', 
+            options: ['得体敬酒', '巧妙挡酒', '借故早退', '活跃气氛'], multi: true, ...commonProps
           }
         ];
-
       case '发言':
-        // 获取当前选中的场合，用于联动
-        const occasion = formState['role'] as string; // 复用 role 字段存场合
-        
+        const occasion = formState['role'] as string;
         let audienceOptions = ['领导高管', '全场来宾', '团队成员'];
         if (occasion === '婚礼庆典') audienceOptions = ['新人双方', '长辈亲友', '全场来宾'];
         if (occasion === '公司会议') audienceOptions = ['老板/资方', '跨部门同事', '下属团队'];
@@ -100,90 +85,56 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
 
         return [
           { 
-            key: 'role', 
-            label: '发言场合', 
-            options: ['公司会议', '婚礼庆典', '行业聚会'],
-            multi: false,
-            ...commonProps
+            key: 'role', label: '发言场合', 
+            options: ['公司会议', '婚礼庆典', '行业聚会'], multi: false, ...commonProps
           },
           { 
-            key: 'intent', // 复用 intent 存发言类型
-            label: '发言类型', 
-            options: ['表达观点/建议', '自我介绍', '场景祝辞', '汇报工作'],
-            multi: false,
-            ...commonProps
+            key: 'intent', label: '发言类型', 
+            options: ['表达观点/建议', '自我介绍', '场景祝辞', '汇报工作'], multi: false, ...commonProps
           },
           { 
-            key: 'who', 
-            label: '主要听众 (多选)', 
-            options: audienceOptions,
-            multi: true, // 听众可能混杂
-            ...commonProps
+            key: 'who', label: '主要听众', 
+            options: audienceOptions, multi: true, ...commonProps
           }
         ];
-
       case '求人':
         return [
           { 
-            key: 'role', 
-            label: '事情性质', 
-            options: ['牵线搭桥', '日常小忙', '需担责/风险'],
-            multi: false,
-            ...commonProps
+            key: 'role', label: '事情性质', 
+            options: ['牵线搭桥', '日常小忙', '需担责/风险'], multi: false, ...commonProps
           },
           { 
-            key: 'who', 
-            label: '双方关系', 
-            options: ['完全陌生/公事公办', '点头之交', '老熟人/私交好', '有把柄/利益绑定'],
-            multi: false,
-            ...commonProps
+            key: 'who', label: '双方关系', 
+            options: ['完全陌生/公事公办', '点头之交', '老熟人/私交好', '有把柄/利益绑定'], multi: false, ...commonProps
           },
           { 
-            key: 'intent', 
-            label: '我的目的', 
-            inputType: 'textarea', // 纯输入框
-            options: [],
-            multi: false
+            key: 'intent', label: '我的目的', inputType: 'textarea', options: [], multi: false
           }
         ];
-
       case '尬聊':
         return [
           { 
-            key: 'role', 
-            label: '当前场景', 
-            options: ['社交聚会/饭局', '电梯/密闭空间', '行业沙龙'],
-            multi: false,
-            ...commonProps
+            key: 'role', label: '当前场景', 
+            options: ['社交聚会/饭局', '电梯/密闭空间', '行业沙龙'], multi: false, ...commonProps
           },
           { 
-            key: 'who', 
-            label: '对方是谁 (多选)', 
-            options: ['大人物/领导', '异性/Crush', '陌生同行', '半生不熟的人'],
-            multi: true,
-            ...commonProps
+            key: 'who', label: '对方是谁', 
+            options: ['大人物/领导', '异性/Crush', '陌生同行', '半生不熟的人'], multi: true, ...commonProps
           },
           { 
-            key: 'intent', 
-            label: '我的意图 (多选)', 
-            options: ['结识搭讪', '寻找话题', '拉近关系', '表现得体'],
-            multi: true,
-            ...commonProps
+            key: 'intent', label: '我的意图', 
+            options: ['结识搭讪', '寻找话题', '拉近关系', '表现得体'], multi: true, ...commonProps
           }
         ];
-
-      default:
-        return [];
+      default: return [];
     }
-  }, [selectedSceneId, formState['role']]); // 当场景或第一个字段变化时，重新计算字段
+  }, [selectedSceneId, formState['role']]);
 
-  // 监听联动逻辑：当“发言场合”改变时，清空“听众”
   useEffect(() => {
     if (selectedSceneId === '发言') {
       setFormState(prev => ({ ...prev, who: [] }));
     }
   }, [formState['role'], selectedSceneId]);
-
 
   const handleSceneClick = (sceneId: string) => {
     setSelectedSceneId(sceneId);
@@ -198,19 +149,12 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
   const handleOptionToggle = (key: string, value: string, multi: boolean) => {
     setFormState(prev => {
       const current = prev[key];
-      
       if (multi) {
-        // 多选逻辑
         const list = Array.isArray(current) ? [...current] : [];
-        if (list.includes(value)) {
-          return { ...prev, [key]: list.filter(item => item !== value) };
-        } else {
-          return { ...prev, [key]: [...list, value] };
-        }
-      } else {
-        // 单选逻辑
-        return { ...prev, [key]: value };
+        if (list.includes(value)) return { ...prev, [key]: list.filter(item => item !== value) };
+        return { ...prev, [key]: [...list, value] };
       }
+      return { ...prev, [key]: value };
     });
   };
 
@@ -224,32 +168,20 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
 
   // 实时流式解析
   const parseOfflineStream = (fullText: string): Plan[] => {
-    // 按照 Start Tag 分割
     const rawPlans = fullText.split('===PLAN_START===');
     const parsedPlans: Plan[] = [];
 
     rawPlans.forEach((block, index) => {
-      // 1. 基础清理
       const cleanBlock = block.trim();
-      // 如果没有【标题】，说明是脏数据或开头的废话，直接丢弃，解决 Plan 0 幽灵卡片问题
       if (!cleanBlock || !cleanBlock.includes('【标题】')) return;
       
       const titleMatch = cleanBlock.match(/【标题】(.*?)\n/);
-      const title = titleMatch ? titleMatch[1].trim() : '';
-
-      // 心法解析：支持多行，直到遇到【步骤】或结束
       const mindsetMatch = cleanBlock.match(/【心法】(.*?)(?=\n【步骤】|$)/s);
-      const mindset = mindsetMatch 
-        ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') 
-        : '';
-
+      
       const steps: any[] = [];
       const stepMatches = [...cleanBlock.matchAll(/【步骤】(.*)/g)];
-      
       stepMatches.forEach(m => {
         const line = m[1].trim();
-        // 增强正则：允许 [Icon] 内部有空格，分隔符支持 - : ： 
-        // 示例： [ 👀 ] 观察 - 内容
         const parts = line.match(/^\[(.*?)(?:\]|】)\s*(.*?)(?:-|:|：)\s*(.*)/);
         if (parts) {
           steps.push({
@@ -260,117 +192,83 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
         }
       });
 
-      // 只有当有标题时才显示，避免显示不完整的块
-      if (title) {
+      if (titleMatch) {
         parsedPlans.push({
           id: `off-stream-${index}`,
-          title: title,
-          mindset: mindset || '师爷正在分析局势...',
+          title: titleMatch[1].trim(),
+          mindset: mindsetMatch ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') : '师爷正在分析局势...',
           steps: steps
         });
       }
     });
-
     return parsedPlans;
   };
 
   const handleGenerate = async () => {
-    
     if (!selectedSceneId) return;
-    
-    // 自定义场景特殊处理
     if (selectedSceneId === '自定义' && !supplement.trim()) {
       alert("请简要描述您的情况");
       return;
     }
 
-    // 合并表单数据和自定义输入
     const finalState: Record<string, string> = {};
-    
-    // 遍历当前显示的字段
     currentFields.forEach(field => {
       const val = formState[field.key];
       const customVal = customInputs[field.key];
-      
       let finalVal = '';
       
       if (field.inputType === 'textarea') {
-          // 直接使用 textarea 的值
           finalVal = val as string || '';
       } else {
         if (Array.isArray(val)) {
-          // 多选
           const list = [...val];
-          // 如果选中了自定义，把输入框的内容加进去
           if (list.includes('自定义') && customVal) {
              const idx = list.indexOf('自定义');
              list[idx] = customVal;
           }
           finalVal = list.join('、');
         } else {
-          // 单选
-          if (val === '自定义' && customVal) {
-            finalVal = customVal;
-          } else {
-            finalVal = val as string || '';
-          }
+          if (val === '自定义' && customVal) finalVal = customVal;
+          else finalVal = val as string || '';
         }
       }
       finalState[field.key] = finalVal;
     });
 
-    // --- 👇 核心请求逻辑开始 👇 ---
-    
-    // 1. 掐断旧请求
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // 2. 初始化状态
     setLoading(true);
-    setStatusText('正在起卦...');
+    setStatusText('正在拆解局势...');
     setShowResults(true);
     setResults([]);
-    lastUpdateRef.current = 0; // 重置节流计时器
-    
+    lastUpdateRef.current = 0;
     let accumulatedText = "";
 
     try {
         const sceneTitle = SCENES.find(s => s.id === selectedSceneId)?.title || selectedSceneId;
-        
         await getAIResponse('offline', {
             scenario: sceneTitle,
             formState: finalState,
             supplement: supplement
         }, (chunk) => {
             accumulatedText += chunk;
-            
-            // --- 节流逻辑 ---
             const now = Date.now();
             if (now - lastUpdateRef.current > 100 || chunk.includes('PLAN_END')) {
                 const plans = parseOfflineStream(accumulatedText);
-                if (plans.length > 0) {
-                    setResults(plans);
-                    setStatusText('师爷正在书写...');
-                }
+                if (plans.length > 0) setResults(plans);
                 lastUpdateRef.current = now;
             }
-        }, controller.signal); // 传入 signal
-
+        }, controller.signal);
     } catch(e: any) {
-        if (e.name !== 'AbortError') {
-            console.error(e);
-            alert("师爷暂歇，请稍后再试");
-        }
+        if (e.name !== 'AbortError') console.error(e);
     } finally {
         if (abortControllerRef.current === controller) {
             setLoading(false);
             abortControllerRef.current = null;
         }
     }
-    // --- 👆 核心请求逻辑结束 👆 ---
   };
 
   const getContextData = () => {
@@ -381,24 +279,13 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
       const finalVal = (displayVal === '自定义' || (Array.isArray(val) && val.includes('自定义'))) 
           ? (customInputs[field.key] || displayVal) 
           : displayVal;
-          
-      if (finalVal) {
-        // 去掉 label 里的 "(多选)" 后缀，显示更干净
-        data.push({ label: field.label.replace(' (多选)', ''), value: finalVal as string });
-      }
+      if (finalVal) data.push({ label: field.label.replace(' (多选)', ''), value: finalVal as string });
     });
     return data;
   };
 
-  const getOptionClass = (isSelected: boolean) => {
-    if (isSelected) {
-      return 'bg-cinnabar text-white border-cinnabar shadow-[3px_3px_0px_#2B2B2B]';
-    }
-    return 'bg-transparent text-stone-600 border-stone-400 hover:border-ink hover:text-ink';
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-ancient animate-[fadeIn_0.5s_ease-out] font-serif text-ink">
+    <div className="min-h-screen flex flex-col bg-[#F9FAFB] font-sans text-slate-900">
       <Header 
         title={step === 'list' ? "线下救场" : SCENES.find(s => s.id === selectedSceneId)?.title || "锦囊"} 
         onBack={() => {
@@ -411,47 +298,48 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
         }} 
       />
 
-      <div className="flex-1 p-5 pb-20 overflow-y-auto no-scrollbar">
+      <div className="flex-1 max-w-3xl mx-auto w-full p-5 pb-32 overflow-y-auto no-scrollbar">
         
-        {/* STEP 1: 场景选择 (双列宫格) */}
+        {/* === STEP 1: 场景选择 (现代化宫格) === */}
         {step === 'list' && (
-          <div className="grid grid-cols-2 gap-4 animate-[slideUp_0.3s_ease-out]">
+          <div className="grid grid-cols-2 gap-4 animate-[slideUp_0.2s_ease-out]">
             {SCENES.map((scene) => (
               <button
                 key={scene.id}
                 onClick={() => handleSceneClick(scene.id)}
-                className="bg-paper border-2 border-ink shadow-[4px_4px_0px_#2B2B2B] aspect-[4/3] flex flex-col items-center justify-center p-3 gap-2 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all active:bg-stone-100 group relative overflow-hidden"
+                className="group relative bg-white p-5 rounded-2xl shadow-apple border border-slate-100 hover:shadow-apple-hover hover:-translate-y-1 transition-all duration-300 text-left overflow-hidden h-40 flex flex-col justify-between"
               >
-                <div className="absolute -right-2 -bottom-2 text-6xl font-black text-ink opacity-5 font-serif pointer-events-none group-hover:scale-110 transition-transform">
-                  {scene.title.slice(0,1)}
-                </div>
-                <div className="w-10 h-10 rounded-full border-2 border-ink flex items-center justify-center bg-white group-hover:bg-cinnabar group-hover:text-white transition-colors">
+                {/* 装饰圆 */}
+                <div className={`absolute -right-4 -top-4 w-20 h-20 bg-gradient-to-br ${scene.color} opacity-10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500`}></div>
+                
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${scene.color} flex items-center justify-center text-white shadow-sm mb-2`}>
                   {scene.icon}
                 </div>
-                <div className="text-center w-full">
-                  <h3 className="text-lg font-black tracking-widest text-ink mb-0.5 whitespace-nowrap">{scene.title}</h3>
-                  <p className="text-[10px] text-stone-500 font-bold truncate px-1">{scene.desc}</p>
+                
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1 tracking-tight">{scene.title}</h3>
+                  <p className="text-xs text-slate-400 font-medium line-clamp-2 leading-relaxed">{scene.desc}</p>
+                </div>
+
+                {/* 悬停出现的箭头 */}
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-slate-300">
+                  <ArrowRight size={18} />
                 </div>
               </button>
             ))}
           </div>
         )}
 
-        {/* STEP 2: 动态表单 (抓药模式) */}
+        {/* === STEP 2: 动态表单 (SaaS 配置风格) === */}
         {step === 'form' && selectedSceneId && (
-          <div className="animate-[fadeIn_0.3s_ease-out] space-y-8">
+          <div className="animate-[fadeIn_0.3s_ease-out]">
             
             <div className={`transition-all duration-500 ${showResults ? 'hidden' : 'block'}`}>
               
-              <div className="flex items-center gap-3 text-ink opacity-60 mb-6">
-                  <Feather size={16} />
-                  <span className="text-sm font-bold tracking-widest border-b border-ink/30 pb-1">
-                      请勾选当前局势，师爷为您定制对策
-                  </span>
-              </div>
-
-              {/* 动态字段渲染 */}
-              <div className="space-y-8">
+              {/* 大卡片容器 */}
+              <div className="bg-white rounded-3xl shadow-apple p-6 mb-8 border border-slate-100 space-y-8">
+                
+                {/* 动态字段 */}
                 {currentFields.map((field) => {
                   const currentValue = formState[field.key];
                   const isMulti = field.multi;
@@ -459,34 +347,34 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
                       ? currentValue.includes('自定义') 
                       : currentValue === '自定义';
 
-                  // 如果是纯文本输入模式
+                  // 纯文本输入
                   if (field.inputType === 'textarea') {
                       return (
-                        <div key={field.key} className="space-y-4">
-                           <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-                            <span className="w-1 h-6 bg-ink inline-block"></span>
+                        <div key={field.key}>
+                           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block px-1">
                             {field.label}
                            </label>
                            <textarea
                               value={(currentValue as string) || ''}
                               onChange={(e) => handleTextareaChange(field.key, e.target.value)}
-                              placeholder="请输入您的具体诉求（如：孩子上学、想借五万块...）"
-                              className="w-full bg-transparent border-b-2 border-stone-300 p-2 text-base outline-none focus:border-ink transition-colors placeholder-stone-400 text-ink font-bold resize-none h-24"
+                              placeholder="请输入您的具体诉求..."
+                              className="w-full bg-slate-50 border-none rounded-xl p-4 text-base text-slate-900 font-medium resize-none h-32 focus:ring-1 focus:ring-slate-200 focus:bg-white transition-all placeholder-slate-400"
                            />
                         </div>
                       );
                   }
 
-                  // 默认选项模式
+                  // 选项
                   return (
-                    <div key={field.key} className="space-y-4">
-                      <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-                        <span className="w-1 h-6 bg-ink inline-block"></span>
-                        {field.label}
-                        {isMulti && <span className="text-xs font-normal opacity-50 text-stone-500">(可多选)</span>}
-                      </label>
+                    <div key={field.key}>
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          {field.label}
+                        </label>
+                        {isMulti && <span className="text-[10px] text-slate-300 font-bold bg-slate-50 px-1.5 py-0.5 rounded">多选</span>}
+                      </div>
                       
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap gap-2.5">
                         {field.options?.map((opt) => {
                           const isSelected = Array.isArray(currentValue)
                             ? currentValue.includes(opt)
@@ -496,37 +384,42 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
                             <button
                               key={opt}
                               onClick={() => handleOptionToggle(field.key, opt, !!isMulti)}
-                              className={`px-4 py-2.5 text-sm font-bold border-2 transition-all duration-200 ${getOptionClass(isSelected)}`}
+                              className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
+                                isSelected
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]' 
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
                             >
                               {opt}
                             </button>
                           );
                         })}
                         
-                        {/* 自定义按钮：浅色虚线加号风格 */}
+                        {/* 自定义按钮 */}
                         {field.allowCustom && (
                           <button 
                              onClick={() => handleOptionToggle(field.key, '自定义', !!isMulti)}
-                             className={`px-4 py-2.5 text-sm font-bold border-2 border-dashed transition-all duration-200 flex items-center gap-1 ${
+                             className={`px-4 py-2.5 rounded-full text-sm font-bold transition-all border flex items-center gap-1 ${
                                 isCustomSelected
-                                 ? 'bg-cinnabar text-white border-cinnabar border-solid shadow-[3px_3px_0px_#2B2B2B]'
-                                 : 'bg-transparent text-stone-400 border-stone-300 hover:border-stone-500 hover:text-stone-600'
+                                 ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]' 
+                                 : 'bg-white text-slate-400 border-dashed border-slate-300 hover:border-slate-400 hover:text-slate-600'
                              }`}
                           >
-                              <Plus size={14} />
+                              <Plus size={14} /> 自定义
                           </button>
                         )}
                       </div>
 
                       {/* 自定义输入框 */}
                       {isCustomSelected && (
-                        <div className="animate-[fadeIn_0.3s_ease-out]">
+                        <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
                           <input
                             type="text"
                             value={customInputs[field.key] || ''}
                             onChange={(e) => handleCustomInputChange(field.key, e.target.value)}
-                            className="w-full bg-transparent border-b border-ink/50 p-2 outline-none text-ink placeholder-stone-400 text-sm font-bold"
+                            className="w-full bg-transparent border-b border-slate-200 py-2 px-1 text-slate-900 placeholder-slate-300 text-base font-medium focus:border-slate-900 outline-none transition-colors"
                             placeholder={`请输入${field.label.replace(' (多选)', '')}...`}
+                            autoFocus
                           />
                         </div>
                       )}
@@ -536,51 +429,54 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
 
                 {/* 补充信息 */}
                 {selectedSceneId !== '自定义' && (
-                    <div className="space-y-3 pt-2">
-                       <label className="text-base font-bold text-stone-500 tracking-widest flex items-center gap-2">
-                          <span className="w-1 h-4 bg-stone-300 inline-block"></span>
-                          补充信息 <span className="text-xs font-normal opacity-70">(可选)</span>
+                    <div className="pt-2">
+                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block px-1">
+                          补充信息 <span className="opacity-50 font-normal normal-case">(可选)</span>
                        </label>
                        <textarea 
                           value={supplement}
                           onChange={(e) => setSupplement(e.target.value)}
                           placeholder="例：我不喝酒 / 只有我一个人..."
-                          className="w-full bg-transparent border-b-2 border-stone-300 p-2 text-sm outline-none focus:border-ink transition-colors placeholder-stone-300 text-ink font-bold resize-none h-16"
+                          className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-900 font-medium resize-none h-24 focus:ring-1 focus:ring-slate-200 focus:bg-white transition-all placeholder-slate-400"
                         />
                     </div>
                 )}
                 
                 {selectedSceneId === '自定义' && (
-                     <div className="space-y-3 pt-2">
-                       <label className="text-lg font-black text-ink tracking-widest flex items-center gap-3">
-                          <span className="w-1 h-6 bg-ink inline-block"></span>
+                     <div>
+                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block px-1">
                           您的处境
                        </label>
                        <textarea 
                           value={supplement}
                           onChange={(e) => setSupplement(e.target.value)}
                           placeholder="请详细描述您遇到的难题..."
-                          className="w-full bg-transparent border-b-2 border-stone-300 p-2 text-base outline-none focus:border-ink transition-colors placeholder-stone-400 text-ink font-bold resize-none h-32"
+                          className="w-full bg-slate-50 border-none rounded-xl p-4 text-base text-slate-900 font-medium resize-none h-40 focus:ring-1 focus:ring-slate-200 focus:bg-white transition-all placeholder-slate-400"
                         />
                     </div>
                 )}
               </div>
 
               {/* 提交按钮 */}
-              <div className="pt-10 pb-10">
+              <div className="mt-8">
                 <button
                   onClick={handleGenerate}
                   disabled={loading}
-                  className={`w-full py-4 border-2 border-ink font-bold text-xl text-paper shadow-[4px_4px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center space-x-3 ${
-                    loading ? 'bg-stone-500 cursor-not-allowed' : 'bg-ink hover:bg-black'
+                  className={`w-full py-4 rounded-2xl font-bold text-lg text-white shadow-lg shadow-slate-200 hover:shadow-xl hover:shadow-slate-300 transition-all active:scale-[0.98] flex items-center justify-center gap-3 ${
+                    loading 
+                    ? 'bg-slate-400 cursor-not-allowed' 
+                    : 'bg-slate-900 hover:bg-black'
                   }`}
                 >
                   {loading ? (
-                    <span className="tracking-widest animate-pulse">{statusText}</span>
+                    <>
+                      <RefreshCw className="animate-spin" size={20} />
+                      <span>{statusText}</span>
+                    </>
                   ) : (
                     <>
-                      <Feather size={20} />
-                      <span className="tracking-[0.3em]">拆锦囊</span>
+                      <Sparkles size={20} className="text-yellow-400 fill-current" />
+                      <span>拆解局势</span>
                     </>
                   )}
                 </button>
@@ -589,27 +485,29 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
             
             {/* 结果展示区 */}
             {showResults && (
-              <div className="animate-[slideUp_0.4s_ease-out] pb-10">
-                <div className="flex justify-between items-center mb-6 border-b-2 border-ink pb-2 border-double">
-                  <h2 className="text-xl font-black text-ink tracking-widest">
-                    {loading ? '推演中...' : '锦囊妙计'}
+              <div className="animate-[slideUp_0.4s_ease-out]">
+                <div className="flex justify-between items-center mb-6 px-1">
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-cinnabar rounded-full inline-block shadow-sm"></span>
+                    锦囊妙计
                   </h2>
-                  {/* 修改：重设按钮改为刷新当前结果 */}
                   <button 
                     onClick={handleGenerate} 
-                    className="text-xs font-bold text-stone-500 hover:text-ink flex items-center gap-1 active:rotate-180 transition-transform"
+                    className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200 active:scale-95 transition-all"
                     disabled={loading}
                   >
-                    <RefreshCw size={12}/> 换一批
+                    <RefreshCw size={12} className={loading ? 'animate-spin' : ''}/> 
+                    <span>换一批</span>
                   </button>
                 </div>
                 
                 <div className="space-y-4">
                   {results.length === 0 && loading && (
-                    <div className="text-center py-10 text-stone-400 font-serif font-medium animate-pulse">
-                      师爷正在研墨...
-                      <br />
-                      局势错综 · 需时十秒
+                    <div className="text-center py-20">
+                      <div className="inline-block p-4 rounded-full bg-slate-50 mb-4 animate-pulse">
+                        <Sparkles size={32} className="text-slate-300" />
+                      </div>
+                      <p className="text-slate-400 font-medium text-sm">师爷正在研墨...</p>
                     </div>
                   )}
                   {results.map((plan) => (
@@ -619,7 +517,6 @@ const OfflineRescue: React.FC<Props> = ({ onBack, initialParams }) => {
                         type="offline" 
                         contextData={getContextData()}
                         onRegenerateSingle={() => {}} 
-                      
                       />
                     </div>
                   ))}

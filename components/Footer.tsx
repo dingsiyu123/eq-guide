@@ -1,75 +1,87 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
+import { ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 
 const Footer = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      {/* 占位高度 */}
-      <div className="h-8"></div>
+      {/* 占位高度，防止内容被遮挡 */}
+      <div className="h-16"></div>
 
       {/* Footer 主体 */}
       <div 
-        className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out font-serif
-        ${isOpen ? 'bg-paper shadow-[0_-8px_30px_rgba(0,0,0,0.08)]' : 'bg-transparent'}`}
+        className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-300 ease-in-out font-sans
+        ${isOpen ? 'bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]' : 'bg-transparent pointer-events-none'}`}
       >
         
-        {/* === 常驻栏 === */}
-        <div 
-          onClick={() => setIsOpen(!isOpen)}
-          className={`flex justify-center items-center py-3 cursor-pointer group ${isOpen ? 'border-b border-dashed border-stone-300/50' : 'hover:translate-y-[-2px] transition-transform'}`}
-        >
-          {/* 小胶囊按钮 */}
-          <div className={`flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-full transition-colors 
-            ${isOpen ? 'text-stone-600 bg-stone-100' : 'bg-paper/90 text-stone-400 border border-stone-200 shadow-sm group-hover:text-ink group-hover:border-ink/30'}`}
+        {/* === 常驻触发器 (悬浮胶囊) === */}
+        {/* pointer-events-auto 确保即使父容器穿透，按钮也能点 */}
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-auto">
+          <button 
+            onClick={() => setIsOpen(!isOpen)}
+            className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-full transition-all shadow-sm border
+              ${isOpen 
+                ? 'bg-slate-100 text-slate-500 border-slate-200 translate-y-[40px] opacity-0' // 展开时隐藏按钮
+                : 'bg-white/80 backdrop-blur-md text-slate-400 border-slate-200 hover:text-slate-600 hover:bg-white hover:shadow-md hover:-translate-y-0.5'
+              }`}
           >
-            <AlertCircle size={14} />
-            <span>免责声明 & 隐私政策</span>
-            {isOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-          </div>
+            <ShieldAlert size={12} />
+            <span>免责声明 & 隐私</span>
+            <ChevronUp size={12} />
+          </button>
         </div>
 
         {/* === 展开后的内容 === */}
         {isOpen && (
-          <div className="px-6 pb-12 pt-6 animate-[fadeIn_0.2s_ease-out] overflow-y-auto max-h-[60vh]">
-            <div className="text-xs sm:text-sm leading-loose text-stone-600 space-y-4 text-justify max-w-2xl mx-auto font-medium">
+          <div className="relative w-full max-w-2xl mx-auto flex flex-col h-auto max-h-[70vh]">
+            
+            {/* 顶部关闭栏 */}
+            <div 
+              onClick={() => setIsOpen(false)}
+              className="flex justify-center items-center py-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-100"
+            >
+              <div className="w-10 h-1 bg-slate-200 rounded-full"></div>
+            </div>
+
+            {/* 滚动内容区 */}
+            <div className="px-6 py-6 overflow-y-auto custom-scrollbar">
+              <h3 className="text-sm font-bold text-slate-900 mb-4">免责声明与隐私政策</h3>
               
-              <p>
-                <span className="font-bold text-ink">1. 关于服务：</span>
-                本产品提供的所有回复均由人工智能大模型生成，仅供娱乐和参考，
-                <strong className="text-cinnabar/80 ml-1">不构成任何法律、医疗、心理咨询或投资建议</strong>。
-                遇到专业问题请咨询相关领域的专业人士。
-              </p>
+              <div className="text-xs text-slate-500 space-y-4 leading-relaxed text-justify">
+                <p>
+                  <span className="font-bold text-slate-700">1. 服务性质：</span>
+                  本产品（“问师爷”）提供的所有回复均由人工智能大模型实时生成。这些内容仅供娱乐、参考和辅助社交决策，<strong className="text-rose-500">不构成任何法律、心理咨询、医疗或投资建议</strong>。在做出重大现实决策前，请务必咨询相关领域的专业人士。
+                </p>
 
-              <p>
-                <span className="font-bold text-ink">2. 数据隐私：</span>
-                我们深知隐私的重要性。
-                <strong className="text-ink ml-1">本站承诺不收集、不存储您的任何个人身份信息。</strong>
-                您的聊天记录仅用于实时生成回复，不会被用于任何商业用途或后台留存。请勿在对话中输入您的身份证号、银行卡号等敏感私密信息。
-              </p>
+                <p>
+                  <span className="font-bold text-slate-700">2. 数据隐私承诺：</span>
+                  我们高度重视您的隐私。
+                  <strong className="text-slate-700">本站承诺不收集、不存储、不分享您的任何个人身份信息。</strong>
+                  您的聊天记录仅在本地及大模型推理过程中短暂存在，不会被用于任何商业用途或建立用户画像。请勿在对话中输入您的真实姓名、身份证号、银行卡号等敏感私密信息。
+                </p>
 
-              <p>
-                <span className="font-bold text-ink">3. 准确性声明：</span>
-                AI 可能会产生错误、虚假或带有偏见的信息（幻觉），请用户在使用时结合实际情况独立判断，切勿完全依赖 AI 的生成结果。
-              </p>
+                <p>
+                  <span className="font-bold text-slate-700">3. 内容准确性：</span>
+                  AI 模型可能会产生错误、虚假或带有偏见的信息（即“幻觉”）。请用户在使用时结合实际情况独立判断，切勿完全依赖 AI 的生成结果。对于因采纳 AI 建议而产生的任何后果（包括但不限于社交关系破裂、经济损失等），开发者不承担法律责任。
+                </p>
+                
+                <p>
+                  <span className="font-bold text-slate-700">4. 合规使用：</span>
+                  严禁使用本工具生成涉及色情、暴力、政治敏感、歧视或违反法律法规的内容。一经发现，我们将采取限制访问等措施。
+                </p>
 
-              <p>
-                <span className="font-bold text-ink">4. 责任豁免：</span>
-                用户在现实生活中采纳 AI 建议所产生的任何后果（包括但不限于人际关系破裂、经济损失等），开发者不承担法律责任。
-              </p>
-              
-              <p>
-                <span className="font-bold text-ink">5. 合规使用：</span>
-                严禁使用本工具生成涉及色情、暴力、政治敏感等违法违规内容。
-              </p>
-
-              {/* 底部版权小字 */}
-              <p className="pt-4 opacity-40 text-center text-[10px] tracking-widest border-t border-dashed border-stone-300 mt-4">
-                Powered by SiliconFlow · Hosted on Vercel
-              </p>
+                <div className="pt-6 mt-4 border-t border-dashed border-slate-200 text-center opacity-60">
+                  <p className="text-[10px] tracking-wider uppercase font-bold text-slate-400">
+                    Powered by SiliconFlow · Hosted on Vercel
+                  </p>
+                  <p className="text-[10px] text-slate-300 mt-1">
+                    © {new Date().getFullYear()} EQ Guide. All rights reserved.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

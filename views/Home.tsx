@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircle, Wine, Swords, Mail } from 'lucide-react';
+import { MessageCircle, Wine, Swords, ArrowRight, Zap, Shield, Sparkles } from 'lucide-react';
 import { Page } from '../types';
 
 interface HomeProps {
@@ -7,100 +7,134 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
-  // 控制邮箱显示的开关
-  const [showEmail, setShowEmail] = useState(false);
-
   return (
-    <div className="min-h-screen bg-ancient flex flex-col items-center p-8 relative overflow-hidden">
-      {/* 装饰边框 */}
-      <div className="absolute inset-4 border-4 border-double border-ink opacity-80 pointer-events-none z-10"></div>
-      <div className="absolute inset-5 border border-ink opacity-30 pointer-events-none z-10"></div>
+    // 背景：浅灰 + 极淡的点阵纹理
+    <div className="min-h-screen bg-[#F9FAFB] bg-grid-pattern flex flex-col font-sans text-slate-900">
       
-      {/* 标题区 */}
-      <div className="mt-12 mb-10 lg:mt-20 lg:mb-16 relative z-20 text-center">
-        <div className="w-16 h-24 bg-cinnabar/10 absolute -left-4 -top-4 -z-10 rounded-sm"></div>
-        <h1 className="text-6xl font-serif font-black text-ink mb-2 tracking-widest writing-vertical-rl mx-auto leading-tight" style={{ writingMode: 'horizontal-tb' }}>
-          人情<br/>世故<br/>指南
-        </h1>
-        <div className="mt-6 flex justify-center">
-          <span className="bg-cinnabar text-paper px-3 py-1 text-sm font-serif tracking-[0.3em] rounded-sm shadow-seal">
-            高情商秘籍
-          </span>
+      {/* 1. 顶部导航栏 (模拟 SaaS 官网) */}
+      <nav className="w-full px-6 py-5 flex justify-between items-center max-w-5xl mx-auto">
+        <div className="flex items-center gap-2">
+          {/* 这里可以是你的 Logo，现在先用文字 */}
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-lg">
+            师
+          </div>
+          <span className="font-bold text-lg tracking-tight">人情世故指南</span>
         </div>
-      </div>
+        <button 
+          onClick={() => alert("联系开发者：dddingsiyu@163.com")}
+          className="text-sm font-medium text-slate-500 hover:text-black transition-colors"
+        >
+          关于我们
+        </button>
+      </nav>
 
-      {/* 菜单区 */}
-      <div className="w-full max-w-xs space-y-6 z-20">
+      {/* 2. Hero 区域：大标题 */}
+      <div className="mt-16 mb-12 px-6 text-center max-w-3xl mx-auto">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-cinnabar text-xs font-bold mb-6 border border-red-100">
+          <Sparkles size={12} />
+          <span>AI 驱动的社交军师</span>
+        </div>
         
-        {/* 线上嘴替 */}
-        <button 
-          onClick={() => onNavigate(Page.ONLINE)}
-          className="w-full bg-paper border-2 border-ink shadow-[4px_4px_0px_#2B2B2B] p-4 flex items-center space-x-4 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all active:bg-stone/10"
-        >
-          <div className="w-12 h-12 border-2 border-ink rounded-full flex items-center justify-center bg-stone-100">
-            <MessageCircle size={24} className="text-ink" />
-          </div>
-          <div className="text-left flex-1">
-            <h2 className="text-xl font-bold font-serif text-ink">线上嘴替</h2>
-            <p className="text-xs text-stone-600 font-serif">微信回话 · 滴水不漏</p>
-          </div>
-          <div className="text-cinnabar font-serif opacity-50">壹</div>
-        </button>
-
-        {/* 线下救场 */}
-        <button 
-          onClick={() => onNavigate(Page.OFFLINE)}
-          className="w-full bg-paper border-2 border-ink shadow-[4px_4px_0px_#2B2B2B] p-4 flex items-center space-x-4 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all active:bg-stone/10"
-        >
-          <div className="w-12 h-12 border-2 border-ink rounded-full flex items-center justify-center bg-stone-100">
-            <Wine size={24} className="text-ink" />
-          </div>
-          <div className="text-left flex-1">
-            <h2 className="text-xl font-bold font-serif text-ink">线下救场</h2>
-            <p className="text-xs text-stone-600 font-serif">现场锦囊 · 人情往来</p>
-          </div>
-          <div className="text-cinnabar font-serif opacity-50">贰</div>
-        </button>
-
-        {/* 情商江湖 */}
-        <button 
-          onClick={() => onNavigate(Page.ARENA)}
-          className="w-full bg-ink text-paper border-2 border-ink shadow-[4px_4px_0px_#9A2A2A] p-4 flex items-center justify-center space-x-3 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all mt-8 group relative overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-paper/5 transform -skew-x-12 translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
-          <Swords size={20} className="text-cinnabar" />
-          <span className="font-serif font-bold text-lg tracking-[0.2em] relative z-10">情商江湖 · 演武场</span>
-        </button>
+        <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight mb-6">
+          让每一次回应<br/>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-orange-600">都滴水不漏</span>
+        </h1>
+        
+        <p className="text-slate-500 text-lg md:text-xl max-w-xl mx-auto leading-relaxed">
+          拒绝无效社交，告别尴尬冷场。
+          <br className="hidden md:block" />
+          基于中国式人情世故的 AI 辅助工具。
+        </p>
       </div>
 
-      {/* 底部注脚区域 (交互式) */}
-      <div className="mt-12 mb-8 lg:mt-16 flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition-opacity duration-500 z-20">
-        <div className="text-[10px] font-serif tracking-[0.2em] text-stone-500 text-center leading-loose">
-          <p>乙巳年 · 赛博出版</p>
-          
-          {/* 点击名字或图标展开邮箱 */}
-          <div 
-            className="mt-1 flex items-center justify-center gap-2 cursor-pointer group"
-            onClick={() => setShowEmail(!showEmail)}
-            title="点击查看联系方式"
-          >
-            <span>
-              Designed by{' '}
-              <span className={`font-bold border-b transition-all pb-[1px] ${showEmail ? 'text-cinnabar border-cinnabar' : 'text-stone-600 border-stone-400/30 group-hover:text-ink'}`}>
-                Ding Siyu
-              </span>
-            </span>
-            <Mail size={12} className={`transition-colors ${showEmail ? 'text-cinnabar' : 'text-stone-400 group-hover:text-ink'}`} />
+      {/* 3. 功能卡片区 (参考了你发的第二张图) */}
+      <div className="w-full max-w-md mx-auto px-6 space-y-4 pb-20">
+        
+        {/* 卡片 1: 线上嘴替 */}
+        <div 
+          onClick={() => onNavigate(Page.ONLINE)}
+          className="group bg-white p-5 rounded-2xl shadow-apple hover:shadow-apple-hover transition-all duration-300 cursor-pointer border border-slate-100 flex items-center gap-5 relative overflow-hidden"
+        >
+          {/* iOS 风格图标容器 */}
+          <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-md shrink-0 group-hover:scale-105 transition-transform duration-300">
+            <MessageCircle size={26} strokeWidth={2} />
           </div>
-
-          {/* 邮箱展开区域 */}
-          <div className={`overflow-hidden transition-all duration-300 ease-out flex flex-col items-center ${showEmail ? 'max-h-12 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
-             <span className="text-cinnabar font-bold select-all bg-white/50 px-2 py-1 rounded-sm border border-cinnabar/20 shadow-sm">
-               dddingsiyu@163.com
-             </span>
+          
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+              线上嘴替
+              {/* 这里的“壹”保留一点点中式元素，但做得很小 */}
+              <span className="text-[10px] text-slate-300 font-serif border border-slate-200 px-1 rounded">壹</span>
+            </h3>
+            <p className="text-sm text-slate-500 leading-snug">微信回话神器。针对糊弄、拒绝、夸奖等场景生成高情商回复。</p>
+          </div>
+          
+          {/* 箭头 */}
+          <div className="text-slate-300 group-hover:text-blue-500 transition-colors">
+            <ArrowRight size={20} />
           </div>
         </div>
+
+        {/* 卡片 2: 线下救场 */}
+        <div 
+          onClick={() => onNavigate(Page.OFFLINE)}
+          className="group bg-white p-5 rounded-2xl shadow-apple hover:shadow-apple-hover transition-all duration-300 cursor-pointer border border-slate-100 flex items-center gap-5"
+        >
+          <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-red-500 rounded-xl flex items-center justify-center text-white shadow-md shrink-0 group-hover:scale-105 transition-transform duration-300">
+            <Wine size={26} strokeWidth={2} />
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+              线下救场
+              <span className="text-[10px] text-slate-300 font-serif border border-slate-200 px-1 rounded">贰</span>
+            </h3>
+            <p className="text-sm text-slate-500 leading-snug">饭局、婚礼、电梯闲谈。教你手放哪、眼看哪、话怎么说。</p>
+          </div>
+          <div className="text-slate-300 group-hover:text-orange-500 transition-colors">
+            <ArrowRight size={20} />
+          </div>
+        </div>
+
+        {/* 卡片 3: 情商江湖 */}
+        <div 
+          onClick={() => onNavigate(Page.ARENA)}
+          className="group bg-white p-5 rounded-2xl shadow-apple hover:shadow-apple-hover transition-all duration-300 cursor-pointer border border-slate-100 flex items-center gap-5"
+        >
+          <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-black rounded-xl flex items-center justify-center text-white shadow-md shrink-0 group-hover:scale-105 transition-transform duration-300">
+            <Swords size={26} strokeWidth={2} />
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+              情商江湖
+              <span className="text-[10px] text-slate-300 font-serif border border-slate-200 px-1 rounded">叁</span>
+            </h3>
+            <p className="text-sm text-slate-500 leading-snug">实战模拟游戏。扮演职场倒霉蛋，在博弈中学会拒绝与周旋。</p>
+          </div>
+          <div className="text-slate-300 group-hover:text-black transition-colors">
+            <ArrowRight size={20} />
+          </div>
+        </div>
+
       </div>
+
+      {/* 底部信任背书 (SaaS 常见设计) */}
+      <div className="mt-auto py-8 text-center border-t border-slate-200 bg-white/50 backdrop-blur-sm">
+        <p className="text-xs font-bold text-slate-400 mb-3 tracking-widest uppercase">Powered By</p>
+        <div className="flex justify-center gap-6 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+           {/* 模拟一些 logo，增加靠谱感 */}
+           <div className="flex items-center gap-1">
+             <Zap size={16} className="text-yellow-500" />
+             <span className="font-bold text-slate-700">SiliconFlow</span>
+           </div>
+           <div className="flex items-center gap-1">
+             <Shield size={16} className="text-green-500" />
+             <span className="font-bold text-slate-700">DeepSeek</span>
+           </div>
+        </div>
+      </div>
+
     </div>
   );
 };
