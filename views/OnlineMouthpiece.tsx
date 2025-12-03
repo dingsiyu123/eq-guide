@@ -92,6 +92,20 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   // 清空文本的辅助函数
   const clearText = () => setInputText('');
 
+  // 🆕 新增：构造 Context Data 用于海报生成
+  const getContextData = () => {
+    const finalRole = targetRole === '自定义' ? customRole : targetRole;
+    const finalIntent = myIntent === '自定义' ? customIntent : myIntent;
+    
+    // 注意：这里不需要传 '对方原话'，因为 posterGenerator 里 plan 对象本身就包含了 originalText
+    // generator 会自动处理原话的显示。这里只传标签数据。
+    return [
+      { label: '对方身份', value: finalRole },
+      { label: '我的意图', value: finalIntent },
+      { label: '关系分', value: `${relationScore}/10` }
+    ];
+  };
+
   return (
     // 背景色更纯净
     <div className="min-h-screen flex flex-col bg-[#F9FAFB] font-sans text-slate-900">
@@ -302,7 +316,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
           </div>
         </div>
 
-        {/* === 结果区域 (保留之前的逻辑) === */}
+        {/* === 结果区域 === */}
         {showResults && (
           <div className="animate-[slideUp_0.4s_ease-out]">
             <div className="flex justify-between items-center mb-6 px-1">
@@ -335,7 +349,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
                   key={plan.id}
                   plan={plan} 
                   type="online" 
-                  contextData={[]} 
+                  contextData={getContextData()} // ⚠️ 修复：传入构造好的数据
                   onRegenerateSingle={() => {}} 
                 />
               ))}

@@ -1,22 +1,23 @@
 import QRCode from 'qrcode';
 
 // ===========================================================
-// 🎨 配置常量：SaaS / 苹果风配色 (微调版)
+// 🎨 配置常量
 // ===========================================================
 const THEME = {
-  bg: '#F8FAFC',        // 整体背景 Slate-50
-  cardBg: '#FFFFFF',    // 卡片背景 White
-  textMain: '#1E293B',  // 深色文字 Slate-800 (比纯黑更柔和)
-  textSub: '#64748B',   // 浅色文字 Slate-500
-  accent: '#2563EB',    // 品牌蓝 Blue-600
-  accentGradient: ['#3B82F6', '#2563EB'], // 更明亮的蓝色渐变
-  bubbleLeft: '#F1F5F9',// 对方气泡 Slate-100
-  border: '#E2E8F0',    // 边框 Slate-200
-  shadow: 'rgba(148, 163, 184, 0.1)' // 更淡的阴影
+  bg: '#F8FAFC',
+  textMain: '#1E293B',
+  textSub: '#64748B',
+  textLight: '#94A3B8', // 浅灰，用于免责声明
+  accent: '#2563EB',
+  accentGradient: ['#3B82F6', '#2563EB'],
+  bubbleLeft: '#FFFFFF', // 左侧气泡改为纯白，更干净
+  border: '#E2E8F0',
 };
 
+const FONT_FAMILY = '"Noto Sans SC", sans-serif';
+
 // ===========================================================
-// 🛠️ 预加载逻辑
+// 🛠️ 预加载
 // ===========================================================
 async function loadFonts() {
   const fontName = 'Noto Sans SC';
@@ -50,121 +51,134 @@ export async function generatePoster(
   
   await loadFonts();
 
-  // 1. 过滤数据
-  const originalTextItem = contextData.find(c => c.label.includes('原话') || c.label.includes('情境'));
-  const tags = contextData.filter(c => !c.label.includes('原话') && !c.label.includes('情境'));
+  const tags = contextData.filter(c => {
+    if (type === 'online' && c.label.includes('原话')) return false;
+    if (!c.value || c.value.trim() === '') return false;
+    return true;
+  });
 
   // 2. 📏 预计算高度
   const tempCanvas = document.createElement('canvas');
   const tempCtx = tempCanvas.getContext('2d')!;
-  tempCtx.font = 'bold 28px "Noto Sans SC", sans-serif';
+  const contentWidth = 750 - 80;
+  
+  let calculatedHeight = 60; // 顶部 padding
 
-  const padding = 40;
-  const contentWidth = 750 - padding * 2;
-  let totalHeight = 220; // 头部高度 (稍微减小)
+  // A. Header
+  calculatedHeight += 90;
 
-  // A. 计算标签区域高度 (智能折叠)
+  // B. Tags Section
   if (tags.length > 0) {
-    const { height: tagsHeight } = layoutTags(tempCtx, tags, contentWidth, 0, 0, true);
-    totalHeight += tagsHeight + 50; // 加上标题间距
+    tempCtx.font = `22px ${FONT_FAMILY}`;
+    const { totalHeight } = measureTagsSection(tempCtx, tags, contentWidth);
+    calculatedHeight += totalHeight;
   }
 
-  // B. 计算原话高度
-  if (originalTextItem) {
-     totalHeight += tags.length > 0 ? 30 : 50; // 根据上面有没有标签调整间距
-     // 加上标题 "对方原话" 的高度
-     totalHeight += 40; 
-     const lines = wrapText(tempCtx, originalTextItem.value, contentWidth - 60);
-     totalHeight += lines.length * 36 + 60; // 容器高度
-  }
+  // C. Strategy Header
+  calculatedHeight += 80; 
+  
+  tempCtx.font = `26px ${FONT_FAMILY}`;
+  const mindsetLines = wrapText(tempCtx, plan.mindset, contentWidth - 80);
+  const mindsetHeight = mindsetLines.length * 42 + 100;
+  calculatedHeight += mindsetHeight + 50; 
 
-  // C. 计算核心策略 (标题 + 心法)
-  totalHeight += 100; // 间距
-  const mindsetLines = wrapText(tempCtx, plan.mindset, contentWidth - 60);
-  // 心法容器高度 = 行数 * 行高 + 上下内边距 + 装饰高度
-  totalHeight += mindsetLines.length * 42 + 80; 
-
-  // D. 计算对话/步骤高度
-  totalHeight += 60; // 间距
+  // D. Content Body
   if (type === 'online') {
-      if (plan.originalText) {
-          totalHeight += measureBubbleHeight(tempCtx, plan.originalText, contentWidth) + 30;
-      }
-      plan.replyText?.forEach((text: string) => {
-          totalHeight += measureBubbleHeight(tempCtx, text, contentWidth) + 30;
+    tempCtx.font = `bold 26px ${FONT_FAMILY}`;
+    
+    if (plan.originalText) {
+      const lines = wrapText(tempCtx, plan.originalText, contentWidth - 140);
+      calculatedHeight += lines.length * 36 + 40 + 30;
+    }
+    
+    if (plan.replyText) {
+      plan.replyText.forEach((text: string) => {
+        const lines = wrapText(tempCtx, text, contentWidth - 140);
+        calculatedHeight += lines.length * 36 + 40 + 25;
       });
+    }
   } else {
-      plan.steps?.slice(0, 3).forEach((step: any) => {
-          const descHeight = wrapText(tempCtx, step.description, contentWidth - 100).length * 34;
-          totalHeight += Math.max(100, descHeight + 60) + 20;
-      });
+    tempCtx.font = `22px ${FONT_FAMILY}`;
+    plan.steps?.slice(0, 3).forEach((step: any) => {
+      const descLines = wrapText(tempCtx, step.description, contentWidth - 100);
+      calculatedHeight += Math.max(100, descLines.length * 34 + 60) + 20;
+    });
   }
 
-  totalHeight += 220; // 底部Footer
+  // E. Footer (高度增加以容纳免责声明)
+  calculatedHeight += 260; 
 
   // 3. 🎨 创建 Canvas
   const canvas = document.createElement('canvas');
-  const scale = 2; 
   canvas.width = 750;
-  canvas.height = Math.max(1334, totalHeight);
+  canvas.height = Math.max(1000, calculatedHeight); 
 
   const ctx = canvas.getContext('2d')!;
   
-  // 填充背景
+  // 背景
   ctx.fillStyle = THEME.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // 顶部极简光影 (模拟光源)
+  
   const bgGrad = ctx.createLinearGradient(0, 0, 750, 600);
   bgGrad.addColorStop(0, '#FFFFFF');
   bgGrad.addColorStop(1, '#F1F5F9');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, 600);
 
-  // ==========================================
   // 4. 绘制流程
-  // ==========================================
   let currentY = 60;
 
-  currentY = await drawHeader(ctx, type, currentY);
-  currentY = await drawContextSection(ctx, tags, originalTextItem, currentY);
-  currentY = await drawStrategySection(ctx, plan, type, currentY);
-  await drawFooter(ctx, currentY);
+  currentY = drawHeader(ctx, type, currentY);
+
+  if (tags.length > 0) {
+    currentY = drawTagsSection(ctx, tags, currentY);
+  }
+
+  currentY = drawStrategyHeader(ctx, plan, currentY);
+
+  // 增加一点垂直间距
+  currentY += 10; 
+
+  if (type === 'online') {
+    currentY = drawChatFlow(ctx, plan, currentY);
+  } else {
+    currentY = drawStepList(ctx, plan, currentY);
+  }
+
+  // Footer 
+  const footerY = Math.max(currentY + 60, canvas.height - 220);
+  await drawFooter(ctx, footerY);
 
   return canvas.toDataURL('image/png', 1.0);
 }
 
 // ===========================================================
-// 🎨 1. 头部绘制 (更紧凑、Logo优化)
+// 🎨 子绘图函数
 // ===========================================================
-async function drawHeader(ctx: CanvasRenderingContext2D, type: string, y: number): Promise<number> {
+
+function drawHeader(ctx: CanvasRenderingContext2D, type: string, y: number): number {
   const startX = 40;
   
-  // 1. Logo "师" (黑底圆角)
   drawRoundedRect(ctx, startX, y, 60, 60, 16, THEME.textMain, null, 0);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 34px "Noto Sans SC", sans-serif';
+  ctx.font = `bold 34px ${FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('师', startX + 30, y + 32); 
+  ctx.fillText('师', startX + 30, y + 32);
 
-  // 2. 标题文字
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  
   ctx.fillStyle = THEME.textMain;
-  ctx.font = '900 34px "Noto Sans SC", sans-serif';
+  ctx.font = `900 34px ${FONT_FAMILY}`;
   ctx.fillText('人情世故指南', startX + 80, y - 2);
 
   ctx.fillStyle = THEME.textSub;
   ctx.font = 'bold 18px "Arial", sans-serif';
   ctx.fillText('AI Social Strategy Guide', startX + 82, y + 40);
 
-  // 3. 胶囊标签 (右上角)
   const tagText = type === 'online' ? '线上嘴替' : '线下救场';
-  const tagColor = type === 'online' ? THEME.accent : '#F97316'; 
-  // 边框风格标签，更显轻盈
-  ctx.font = 'bold 22px "Noto Sans SC"';
+  const tagColor = type === 'online' ? THEME.accent : '#F97316';
+  ctx.font = `bold 22px ${FONT_FAMILY}`;
   const tagWidth = ctx.measureText(tagText).width + 30;
   const tagX = 750 - 40 - tagWidth;
   
@@ -177,72 +191,42 @@ async function drawHeader(ctx: CanvasRenderingContext2D, type: string, y: number
   return y + 90;
 }
 
-// ===========================================================
-// 🎨 2. 局势卡片 (修复留白问题)
-// ===========================================================
-async function drawContextSection(ctx: CanvasRenderingContext2D, tags: any[], originalItem: any, y: number): Promise<number> {
-  const startX = 40;
-  const contentWidth = 750 - 80;
-
-  // 只有当有标签时，才绘制“当前局势”标题和内容
-  if (tags.length > 0) {
-    // 标题
-    ctx.fillStyle = THEME.textSub;
-    ctx.font = 'bold 22px "Noto Sans SC"';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText('当前局势', startX + 15, y);
-    
-    // 小竖条装饰
-    ctx.fillStyle = THEME.textMain;
-    ctx.fillRect(startX, y + 4, 4, 18);
-
-    y += 40;
-
-    // 绘制 Tags
-    const { newY } = layoutTags(ctx, tags, contentWidth, startX, y, false);
-    y = newY + 30; // 增加一点底部间距
-  }
-
-  // 绘制原话 (作为独立卡片)
-  if (originalItem) {
-    const textLines = wrapText(ctx, originalItem.value, contentWidth - 60);
-    const boxHeight = textLines.length * 36 + 50;
-    
-    // 浅色背景卡片
-    drawRoundedRect(ctx, startX, y, contentWidth, boxHeight, 20, '#FFFFFF', THEME.border, 1);
-    
-    // 小标题
-    ctx.fillStyle = THEME.textSub;
-    ctx.font = 'bold 18px "Noto Sans SC"';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText('对方原话', startX + 30, y + 25);
-
-    // 内容
-    ctx.fillStyle = THEME.textMain;
-    ctx.font = '26px "Noto Sans SC"';
-    let textY = y + 60;
-    for (const line of textLines) {
-      ctx.fillText(line, startX + 30, textY);
-      textY += 36;
-    }
-    y += boxHeight + 40;
-  }
-
-  return y;
+function measureTagsSection(ctx: CanvasRenderingContext2D, tags: any[], contentWidth: number) {
+  ctx.font = `22px ${FONT_FAMILY}`;
+  const { height: tagsHeight } = layoutTags(ctx, tags, contentWidth - 40, 0, 0, true);
+  return { totalHeight: 70 + tagsHeight + 30 };
 }
 
-// ===========================================================
-// 🎨 3. 核心策略 (Plan A + 金句优化)
-// ===========================================================
-async function drawStrategySection(ctx: CanvasRenderingContext2D, plan: any, type: string, y: number): Promise<number> {
+function drawTagsSection(ctx: CanvasRenderingContext2D, tags: any[], y: number): number {
+  const startX = 40;
+  const contentWidth = 750 - 80;
+  
+  ctx.font = `22px ${FONT_FAMILY}`;
+  const { height: tagsHeight } = layoutTags(ctx, tags, contentWidth - 40, 0, 0, true);
+  const containerHeight = 70 + tagsHeight;
+
+  drawRoundedRect(ctx, startX, y, contentWidth, containerHeight, 16, '#FFFFFF', THEME.border, 1);
+
+  ctx.fillStyle = THEME.accent;
+  ctx.fillRect(startX + 10, y + 24, 4, 20);
+  
+  ctx.fillStyle = THEME.textMain;
+  ctx.font = `bold 24px ${FONT_FAMILY}`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('当前局势', startX + 20, y + 20);
+
+  layoutTags(ctx, tags, contentWidth - 40, startX + 20, y + 60, false);
+
+  return y + containerHeight + 30;
+}
+
+function drawStrategyHeader(ctx: CanvasRenderingContext2D, plan: any, y: number): number {
   const startX = 40;
   const contentWidth = 750 - 80;
 
-  // 1. Plan A 胶囊
   const titleMatch = plan.title.match(/(Plan\s*[A-Z0-9]+)[:：]?\s*(.*)/i);
-  const planTag = titleMatch ? titleMatch[1].toUpperCase() : 'PLAN A'; 
+  const planTag = titleMatch ? titleMatch[1].toUpperCase() : 'PLAN';
   const mainTitle = titleMatch ? titleMatch[2] : plan.title;
 
   drawRoundedRect(ctx, startX, y, 90, 32, 16, THEME.textMain, null, 0);
@@ -252,109 +236,108 @@ async function drawStrategySection(ctx: CanvasRenderingContext2D, plan: any, typ
   ctx.textBaseline = 'middle';
   ctx.fillText(planTag, startX + 45, y + 17);
 
-  // 2. 主标题
   ctx.fillStyle = THEME.textMain;
-  ctx.font = '900 44px "Noto Sans SC"';
+  ctx.font = `900 44px ${FONT_FAMILY}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(mainTitle, startX + 105, y - 6);
 
-  y += 50;
+  y += 60;
 
-  // 3. 心法金句 (长文优化)
-  const mindsetLines = wrapText(ctx, plan.mindset, contentWidth - 60);
-  const mindsetHeight = mindsetLines.length * 42 + 60;
-  
-  // 渐变背景条
+  ctx.font = `26px ${FONT_FAMILY}`;
+  const mindsetLines = wrapText(ctx, plan.mindset, contentWidth - 80);
+  const mindsetHeight = mindsetLines.length * 42 + 100;
+
   const grad = ctx.createLinearGradient(startX, y, startX + contentWidth, y + mindsetHeight);
   grad.addColorStop(0, '#EFF6FF');
-  grad.addColorStop(1, '#F8FAFC');
+  grad.addColorStop(1, '#DBEAFE');
   
-  drawRoundedRect(ctx, startX, y, contentWidth, mindsetHeight, 20, grad, null, 0);
-  
-  // 装饰性引号
-  ctx.fillStyle = '#CBD5E1'; // 浅灰引号
-  ctx.font = 'bold 60px Arial';
-  ctx.fillText('“', startX + 20, y + 40);
+  drawRoundedRect(ctx, startX, y, contentWidth, mindsetHeight, 20, grad, THEME.border, 1);
 
-  // 文字内容
-  ctx.fillStyle = '#334155'; // Slate-700
-  ctx.font = '26px "Noto Sans SC"'; // 适中字号
-  let mindY = y + 40; // 增加顶部padding
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+  ctx.font = 'bold 80px Georgia';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('"', startX + 15, y + 10);
+
+  ctx.fillStyle = '#1E293B';
+  ctx.font = `26px ${FONT_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  const textCenterX = startX + contentWidth / 2;
+  let mindY = y + 50;
+
   for (const line of mindsetLines) {
-    ctx.fillText(line, startX + 40, mindY); // 增加左侧缩进
-    mindY += 42; // 增加行高，提升呼吸感
+    ctx.fillText(line, textCenterX, mindY);
+    mindY += 42;
   }
 
-  y += mindsetHeight + 50;
-
-  // 4. 对话或步骤
-  if (type === 'online') {
-    y = drawChatFlow(ctx, plan, y);
-  } else {
-    y = drawStepList(ctx, plan, y);
-  }
-
-  return y;
+  return y + mindsetHeight + 40;
 }
 
-// --- 子绘图：对话流 ---
 function drawChatFlow(ctx: CanvasRenderingContext2D, plan: any, y: number): number {
   const contentWidth = 750 - 80;
-  
-  // 对方 (左侧) - 已经被上面"对方原话"卡片覆盖，这里只画我方回复，或者如果还有其他交互
-  // 如果 plan.originalText 在上面画过了，这里其实可以略过，或者为了对话完整性再画一次气泡
-  // 考虑到海报的信息密度，如果上面有原话卡片，这里只展示“我”的精彩回复可能更好。
-  // 但为了保留对话感，我们还是画全，但简化样式。
+  ctx.font = `bold 26px ${FONT_FAMILY}`;
 
+  // A. 对方原话（左侧）
   if (plan.originalText) {
     const lines = wrapText(ctx, plan.originalText, contentWidth - 140);
     const h = lines.length * 36 + 40;
-    
-    // 头像 (灰色小人)
-    drawCircle(ctx, 80, y + h, 18, THEME.border, '#FFFFFF');
-    // 画一个简单的人形icon或者文字
-    ctx.fillStyle = '#94A3B8';
-    ctx.beginPath(); 
-    ctx.arc(80, y + h - 5, 6, 0, Math.PI * 2); // 头
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(80, y + h + 8, 10, Math.PI, 0); // 身
-    ctx.fill();
 
-    // 气泡
+    const avatarRadius = 28;
+    const avatarY = y + h - 18;
+
+    drawCircle(ctx, 70, avatarY, avatarRadius, null, '#F1F5F9');
+    
+    ctx.fillStyle = '#64748B';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TA', 70, avatarY);
+
+    ctx.font = `bold 26px ${FONT_FAMILY}`;
     drawBubble(ctx, 110, y, lines, h, 'left');
     y += h + 30;
   }
 
-  // 我 (右侧)
+  // B. 我方回复（右侧）
   if (plan.replyText) {
     for (const text of plan.replyText) {
       const lines = wrapText(ctx, text, contentWidth - 140);
       const h = lines.length * 36 + 40;
-      const bubbleWidth = measureTextWidth(ctx, lines) + 50;
       
-      const bubbleX = 750 - 40 - 40 - bubbleWidth;
+      // ⚠️ 修复：计算气泡真实宽度 (文字宽度 + 内边距 60)
+      const textWidth = measureTextWidth(ctx, lines);
+      const bubbleWidth = textWidth + 60; // 左右各30px padding
+
+      // 头像位置
+      const avatarX = 750 - 50; // 头像中心 X 坐标
+      const avatarRadius = 28;
+      
+      // 气泡 X 坐标 = 头像中心 - 头像半径 - 间距(12px) - 气泡宽度
+      const bubbleX = avatarX - avatarRadius - 12 - bubbleWidth;
+
       drawBubble(ctx, bubbleX, y, lines, h, 'right');
 
-      // 头像 (黑底白字 "我")
-      drawCircle(ctx, 750 - 60, y + h, 18, null, THEME.textMain);
+      const avatarY = y + h - 18;
+      drawCircle(ctx, avatarX, avatarY, avatarRadius, null, THEME.textMain);
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 14px "Noto Sans SC"';
+      ctx.font = `bold 18px ${FONT_FAMILY}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('我', 750 - 60, y + h);
+      ctx.fillText('我', avatarX, avatarY);
 
-      y += h + 20;
+      y += h + 25;
     }
   }
+
   return y;
 }
 
-// --- 子绘图：步骤列表 ---
 function drawStepList(ctx: CanvasRenderingContext2D, plan: any, y: number): number {
   if (!plan.steps) return y;
-  
+
   for (let i = 0; i < Math.min(plan.steps.length, 3); i++) {
     const step = plan.steps[i];
     const lines = wrapText(ctx, step.description, 500);
@@ -362,38 +345,32 @@ function drawStepList(ctx: CanvasRenderingContext2D, plan: any, y: number): numb
 
     drawRoundedRect(ctx, 40, y, 670, h, 16, '#FFFFFF', THEME.border, 1);
 
-    // 序号圆圈
     drawCircle(ctx, 80, y + 45, 18, null, '#F1F5F9');
     ctx.fillStyle = THEME.textSub;
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${i+1}`, 80, y + 45);
+    ctx.fillText(`${i + 1}`, 80, y + 45);
 
-    // 标题
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = THEME.textMain;
-    ctx.font = 'bold 26px "Noto Sans SC"';
+    ctx.font = `bold 26px ${FONT_FAMILY}`;
     ctx.fillText(step.keyword, 120, y + 18);
 
-    // 描述
     ctx.fillStyle = THEME.textSub;
-    ctx.font = '22px "Noto Sans SC"';
+    ctx.font = `22px ${FONT_FAMILY}`;
     let lineY = y + 55;
     for (const line of lines) {
       ctx.fillText(line, 120, lineY);
       lineY += 34;
     }
 
-    y += h + 15;
+    y += h + 20;
   }
   return y;
 }
 
-// ===========================================================
-// 🎨 4. 底部绘制
-// ===========================================================
 async function drawFooter(ctx: CanvasRenderingContext2D, y: number) {
   ctx.strokeStyle = THEME.border;
   ctx.lineWidth = 1;
@@ -406,52 +383,53 @@ async function drawFooter(ctx: CanvasRenderingContext2D, y: number) {
 
   y += 30;
 
-  // 左侧文字
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillStyle = THEME.textMain;
-  ctx.font = 'bold 24px "Noto Sans SC"';
-  ctx.fillText('遇到社交难题？', 40, y);
-  
+  ctx.font = `bold 24px ${FONT_FAMILY}`;
+  ctx.fillText('遇到社交难题?', 40, y);
+
   ctx.fillStyle = THEME.textSub;
-  ctx.font = '20px "Noto Sans SC"';
+  ctx.font = `20px ${FONT_FAMILY}`;
   ctx.fillText('扫码获取你的 AI 军师', 40, y + 35);
 
-  // 右侧二维码
   try {
     const qrDataURL = await QRCode.toDataURL('https://www.ask-shiye.com', {
-        width: 120, margin: 1, color: { dark: '#0F172A', light: '#00000000' }
+      width: 120,
+      margin: 1,
+      color: { dark: '#0F172A', light: '#00000000' }
     });
     const qrImage = await loadImage(qrDataURL);
-    // 二维码背景框
+
     drawRoundedRect(ctx, 750 - 40 - 100, y - 5, 100, 100, 12, '#FFFFFF', THEME.border, 1);
     ctx.drawImage(qrImage, 750 - 40 - 92, y + 3, 84, 84);
   } catch (e) {
     console.error('QR Code render failed');
   }
+
+  // ⚠️ 核心新增：免责声明 (更小号字体，浅灰色)
+  y += 120; 
+  ctx.fillStyle = THEME.textLight;
+  ctx.font = '18px "Noto Sans SC", sans-serif'; 
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('AI大模型生成 仅供娱乐参考', 375, y);
 }
 
-// ===========================================================
-// 🛠️ 辅助工具函数 (排版引擎修复版)
-// ===========================================================
-
+// ... 辅助函数保持不变 ...
 function layoutTags(ctx: CanvasRenderingContext2D, tags: any[], maxWidth: number, startX: number, startY: number, dryRun: boolean) {
-  // 核心修复：如果没有标签，高度为0，不要返回默认行高
-  if (!tags || tags.length === 0) {
-    return { height: 0, newY: startY };
-  }
+  if (!tags || tags.length === 0) return { height: 0, newY: startY };
 
   let x = startX;
   let y = startY;
   const lineHeight = 50;
-  
-  ctx.font = '22px "Noto Sans SC"';
+
+  ctx.font = `22px ${FONT_FAMILY}`;
 
   tags.forEach(tag => {
     const text = `${tag.label}: ${tag.value}`;
-    const width = ctx.measureText(text).width + 30; 
+    const width = ctx.measureText(text).width + 30;
 
-    // 换行逻辑
     if (x + width > startX + maxWidth) {
       x = startX;
       y += lineHeight + 10;
@@ -459,18 +437,17 @@ function layoutTags(ctx: CanvasRenderingContext2D, tags: any[], maxWidth: number
 
     if (!dryRun) {
       const isScore = tag.label.includes('分');
-      // 胶囊颜色：分数用强调色，其他用默认
       const strokeColor = isScore ? THEME.accent : THEME.border;
       const textColor = isScore ? THEME.accent : THEME.textSub;
-      
+
       drawRoundedRect(ctx, x, y, width, 40, 20, '#FFFFFF', strokeColor, 1);
-      
+
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = textColor;
       ctx.fillText(text, x + 15, y + 20);
     }
-    x += width + 12; // 标签间距
+    x += width + 12;
   });
 
   return { height: y - startY + lineHeight, newY: y + lineHeight };
@@ -496,6 +473,15 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return lines;
 }
 
+function measureTextWidth(ctx: CanvasRenderingContext2D, lines: string[]): number {
+  let max = 0;
+  lines.forEach(l => {
+    const w = ctx.measureText(l).width;
+    if (w > max) max = w;
+  });
+  return max;
+}
+
 function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, fill: string | null | CanvasGradient, stroke: string | null, lw: number) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
@@ -511,11 +497,13 @@ function drawCircle(ctx: CanvasRenderingContext2D, x: number, y: number, r: numb
 }
 
 function drawBubble(ctx: CanvasRenderingContext2D, x: number, y: number, lines: string[], h: number, type: 'left' | 'right') {
-  const w = measureTextWidth(ctx, lines) + 50;
-  
+  // ⚠️ 修复：计算气泡真实宽度，移除 min-width 150/200 限制
+  const textWidth = measureTextWidth(ctx, lines);
+  const w = textWidth + 60; // 左右各30 padding
+
   let fillStyle: string | CanvasGradient = THEME.bubbleLeft;
   let textColor = THEME.textMain;
-  
+
   if (type === 'right') {
     const grad = ctx.createLinearGradient(x, y, x + w, y + h);
     grad.addColorStop(0, THEME.accentGradient[0]);
@@ -529,15 +517,10 @@ function drawBubble(ctx: CanvasRenderingContext2D, x: number, y: number, lines: 
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
   ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - (type === 'right' ? 0 : r));
-  if (type === 'right') ctx.lineTo(x + w, y + h); 
-  else ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
   ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - (type === 'left' ? 0 : r));
-  if (type === 'left') ctx.lineTo(x, y + h);
-  else ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
@@ -546,26 +529,15 @@ function drawBubble(ctx: CanvasRenderingContext2D, x: number, y: number, lines: 
   ctx.fill();
 
   ctx.fillStyle = textColor;
-  ctx.font = 'bold 26px "Noto Sans SC"';
+  ctx.font = `bold 26px ${FONT_FAMILY}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
+  
   let textY = y + 20;
+  const textX = x + 30;
+
   for (const line of lines) {
-    ctx.fillText(line, x + 25, textY);
+    ctx.fillText(line, textX, textY);
     textY += 36;
   }
-}
-
-function measureTextWidth(ctx: CanvasRenderingContext2D, lines: string[]): number {
-  let max = 0;
-  lines.forEach(l => {
-    const w = ctx.measureText(l).width;
-    if (w > max) max = w;
-  });
-  return max;
-}
-
-function measureBubbleHeight(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): number {
-    const lines = wrapText(ctx, text, maxWidth - 140);
-    return lines.length * 36 + 40;
 }
