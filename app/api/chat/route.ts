@@ -2,12 +2,81 @@ import { NextRequest } from 'next/server';
 import { ARENA_LEVELS } from '../../../lib/data';
 import { ChatMessage } from '../../../types';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs'; // 改用这个，更稳！
+export const maxDuration = 60;   // 显式延长超时时间到 60秒
 
 // 硅基流动 (SiliconFlow) API 配置
 const API_URL = "https://api.siliconflow.cn/v1/chat/completions";
 const MODEL_NAME = process.env.MODEL_NAME || "deepseek-ai/DeepSeek-V3.1-Terminus";
 const rateLimitMap = new Map<string, number>();
+
+
+// === 新增配置：视觉模型 ===
+// 注意：如果在硅基流动报错 model not found，请尝试把这里改成 "Qwen/Qwen2.5-VL-72B-Instruct"
+const VISION_MODEL = "Qwen/Qwen2-VL-72B-Instruct"; 
+
+// === 辅助函数：专门用来提取图片文字 ===
+async function extractTextFromImage(apiKey: string, base64Image: string): Promise<string> {
+  try {
+    console.log("正在调用视觉模型:", VISION_MODEL);
+    const response = await fetch(API_URL, {
+      method: "POST",
+      // ... headers 保持不变
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { 
+                type: "text", 
+                // ✨ 核心修改：指令升级，专门针对微信UI ✨
+                text: `你是一个专业的微信聊天记录分析员。请分析这张截图：
+1. 【提取标题】：读取顶部正中间的文字（通常是备注名或群名）。
+2. 【区分角色】：
+   - 居右的气泡（通常是绿色/蓝色/其他颜色）是【我】。
+   - 居左的气泡（通常是白色）是【对方】。
+3. 【群聊处理】：如果左侧气泡上方有小字昵称，请务必记录为【对方-昵称】。
+4. 【输出格式】：请严格按时间顺序输出，格式如下：
+   
+   【场景】：(私聊/群聊 - 标题名)
+   【我】：(内容)
+   【对方-王总】：(内容)
+   ...
+   
+   (只输出内容，不要任何开场白)` 
+              },
+              { 
+                type: "image_url", 
+                image_url: { url: base64Image } 
+              }
+            ]
+          }
+        ],
+        stream: false, 
+        max_tokens: 2048,
+        temperature: 0.1 
+      })
+    });
+
+    if (!response.ok) {
+       const err = await response.text();
+       
+       console.error("Vision API Error:", err);
+       return "";
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "";
+    
+  } catch (e) {
+    console.error("Extraction failed:", e);
+    return "";
+  }
+}
+
+
+
 
 export async function POST(req: NextRequest) {
 
@@ -29,13 +98,33 @@ export async function POST(req: NextRequest) {
 
   try {
     const { type, inputData } = await req.json();
+
+// === 新增逻辑：如果是线上嘴替模式，且有图片 ===
+if (type === 'online' && inputData.image) {
+  // 1. 先调用 Qwen VL 看图
+  const extractedConversation = await extractTextFromImage(apiKey, inputData.image);
+  
+  if (!extractedConversation || extractedConversation.trim() === "") {
+    // 🔴 变更点：如果提取失败，不要继续了，直接抛出错误让前端知道
+    console.warn("图片识别结果为空");
+    return new Response(JSON.stringify({ error: "图片识别失败，请检查图片或重试" }), { status: 500 });
+  } else {
+    // 2. 把提取出来的对话，伪装成用户输入的文本
+    // 这样下面的 DeepSeek 逻辑完全不用动，它会以为是用户复制粘贴进来的
+    const originalInput = inputData.text || "";
+    inputData.text = `【系统提示：以下是用户上传的聊天记录截图内容】：\n${extractedConversation}\n\n【用户额外备注】：${originalInput}`;
+  }
+}
+// === 结束插入 ===
+
+    
     let messages: any[] = [];
     
     // --- 1. 构建 Prompt (提示词) ---
     // 所有的核心 Prompt 逻辑都在这里，前端无法查看，绝对安全。
 
     if (type === 'online') {
-      const systemPrompt = `# Role: 你是一个深知中国式人情世故和中国式高情商的社交军师，用户正在和你求助微信如何回复。你需要
+      let systemPrompt = `# Role: 你是一个深知中国式人情世故和中国式高情商的社交军师，用户正在和你求助微信如何回复。你需要
 
 ## 🎯 你的核心任务
 根据用户提供的【对方原话】、【对方身份】和【亲疏程度评分（0分是陌生，10分是很亲密）】，生成回复文案，但不能显得圆滑、刻意、虚伪，或者给自己好被拆穿、或根本无现实依据的借口谎言，必须要看上去“很真诚”，字数和条数你可以视具体情况而定，没有限制。
@@ -67,7 +156,21 @@ export async function POST(req: NextRequest) {
 
 ...以此类推 Plan B, Plan C。`;
 
-      const userContent = `对方身份：${inputData.role}\n我的意图：${inputData.intent}\n关系分(0-10)：${inputData.score}\n对方原话：${inputData.text}`;
+
+
+      if (inputData.image) {
+        systemPrompt += `
+
+## 🔥 语气克隆与接续（高级模式 - 仅在有聊天记录时生效）
+用户提供了【聊天记录截图提取内容】，你必须像用户的“影子写手”一样：
+1. **分析人设**：仔细观察记录中【我】的历史语气（是活泼爱用表情？还是高冷短句？是卑微还是强势？），你的回复必须完美复刻这种风格。
+2. **无缝接续**：你的回复要能完美接上上一句话，不要有割裂感。
+3. **识别关系**：根据截图顶部的标题（备注名/群名）调整分寸（群聊要看清是谁在说话）。`;
+      }
+
+      // 3. 构建用户输入内容
+      // 这里的 inputData.text 已经被前面的 OCR 逻辑处理过了（如果有图，就是提取内容；没图，就是用户粘贴的字）
+      const userContent = `对方身份：${inputData.role}\n我的意图：${inputData.intent}\n关系分(0-10)：${inputData.score}\n\n${inputData.text}`;
       
       messages = [
         { role: "system", content: systemPrompt },
