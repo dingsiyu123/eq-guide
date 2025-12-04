@@ -181,7 +181,12 @@ if (type === 'online' && inputData.image) {
         contentForAI = "【对方原话/聊天记录】：无。请生成主动开场消息。";
       }
       
-      const userContent = `对方身份：${inputData.role}\n我的意图：${inputData.intent}\n关系分(0-10)：${inputData.score}\n\n${contentForAI}`;
+      const userContent = `对方身份：${inputData.role}
+我的意图：${inputData.intent}
+关系分(0-10)：${inputData.score}
+【补充背景】：${inputData.contextInfo || '无'} 
+【对方原话/聊天记录】：
+${contentForAI}`;
       
       messages = [
         { role: "system", content: systemPrompt },
