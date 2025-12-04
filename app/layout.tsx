@@ -1,8 +1,12 @@
+// dingsiyu123/eq-guide/eq-guide-ccc19c578c952b411d06ce5f109ddf0429802660/app/layout.tsx
+
 import React from 'react';
 import type { Metadata } from 'next';
 import './globals.css';
-// 1. 引入 Footer 组件 (新增这行)
 import Footer from '../components/Footer';
+
+// Define the GA Tracking ID (Read from environment variables)
+const GA_TRACKING_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata: Metadata = {
   // 1. 浏览器标签页显示的标题
@@ -35,15 +39,40 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      {/* 2. 这里的 body 样式确保页面高度撑满 (新增 min-h-screen flex flex-col) */}
+      <head>
+        {/* === 【新增】Google Analytics 脚本 === */}
+        {GA_TRACKING_ID && (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${GA_TRACKING_ID}', {
+                    page_path: window.location.pathname,
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
+        {/* === 【结束新增】Google Analytics === */}
+      </head>
+      
+      {/* 2. 这里的 body 样式确保页面高度撑满 */}
       <body className="bg-ancient antialiased min-h-screen flex flex-col">
         
-        {/* 主内容区域 (flex-1 让它自动填满剩余空间) */}
+        {/* 主内容区域 */}
         <div className="flex-1">
           {children}
         </div>
 
-        {/* 3. 放入全局底部栏 (新增这行) */}
+        {/* 放入全局底部栏 */}
         <Footer />
         
       </body>

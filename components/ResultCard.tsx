@@ -1,5 +1,7 @@
+// dingsiyu123/eq-guide/eq-guide-ccc19c578c952b411d06ce5f109ddf0429802660/components/ResultCard.tsx
+
 import React, { useState, memo } from 'react';
-import { ChevronDown, Copy, Share2, Sparkles, User, X, Loader2 } from 'lucide-react';
+import { ChevronDown, Copy, Share2, Sparkles, User, X, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react'; // 【修改】导入 ThumbsUp, ThumbsDown
 import { Plan } from '../types';
 import { generatePoster } from '../utils/posterGenerator'; // 引入新的 Generator
 
@@ -10,9 +12,23 @@ interface ResultCardProps {
   onRegenerateSingle: (id: string) => void;
 }
 
+// 【新增】GA 事件记录函数
+const logFeedback = (planId: string, type: 'helpful' | 'unhelpful') => {
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'plan_feedback', {
+            event_category: 'result_engagement',
+            event_label: `${planId}_${type}`,
+            value: type === 'helpful' ? 1 : 0,
+        });
+    }
+};
+
 const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], onRegenerateSingle }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   
+  // 【新增】反馈状态
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
   // 海报相关状态
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareImage, setShareImage] = useState<string | null>(null);
@@ -50,6 +66,13 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
       setIsGenerating(false);
     }
   };
+  
+  // 【新增】反馈处理器
+  const handleFeedback = (feedbackType: 'helpful' | 'unhelpful') => {
+      if (feedbackSent) return;
+      logFeedback(plan.id, feedbackType);
+      setFeedbackSent(true);
+  }
 
   const titleMatch = plan.title.match(/(Plan\s*[A-Z0-9]+)[:：]?\s*(.*)/i);
   const planTag = titleMatch ? titleMatch[1].toUpperCase() : null; 
@@ -152,6 +175,36 @@ const ResultCard: React.FC<ResultCardProps> = ({ plan, type, contextData = [], o
                 <Share2 size={16} />
               </button>
             </div>
+            
+            {/* 【新增】反馈按钮区 */}
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400">对你有帮助吗?</span>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => handleFeedback('helpful')}
+                        disabled={feedbackSent}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+                            feedbackSent 
+                                ? 'bg-green-500 text-white border-green-600'
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                        <ThumbsUp size={14} /> <span>有帮助</span>
+                    </button>
+                    <button 
+                        onClick={() => handleFeedback('unhelpful')}
+                        disabled={feedbackSent}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+                            feedbackSent 
+                                ? 'bg-red-500 text-white border-red-600'
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                        <ThumbsDown size={14} /> <span>无帮助</span>
+                    </button>
+                </div>
+            </div>
+            {/* 【结束新增】反馈按钮区 */}
           </div>
         )}
       </div>

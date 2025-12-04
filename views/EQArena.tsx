@@ -2,7 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArenaTurn, ChatMessage } from '../types';
 import Header from '../components/Header';
 import { getActorResponse, getMonologueResponse, getJudgeResult, ARENA_LEVELS } from '../services/aiService';
-import { Send, BrainCircuit, Heart, Zap, RefreshCw, User, Bot, Sparkles, Trophy, Frown, ArrowRight } from 'lucide-react';
+import { generatePoster } from '../utils/posterGenerator'; // 【新增】海报生成函数导入
+import { Send, BrainCircuit, Heart, Zap, RefreshCw, User, Bot, Sparkles, Trophy, Frown, ArrowRight, Copy, Share2, X, Loader2 } from 'lucide-react';
+
+
 
 interface Props {
   onBack: () => void;
@@ -29,6 +32,9 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
   const [currentOS, setCurrentOS] = useState<string>("（正在观察你的反应...）");
   const [moodChange, setMoodChange] = useState<number | null>(null);
 
+  const [showShareModal, setShowShareModal] = useState(false);
+const [shareImage, setShareImage] = useState<string | null>(null);
+const [isGenerating, setIsGenerating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const currentLevel = ARENA_LEVELS[currentLevelIdx];
 
@@ -171,6 +177,7 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
 
   const handleRetry = () => setGameId(prev => prev + 1);
 
+  
   // 获取心情颜色
   const getMoodColor = (val: number) => {
     if (val < 30) return 'bg-red-500';

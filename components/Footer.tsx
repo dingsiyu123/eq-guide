@@ -1,3 +1,5 @@
+// dingsiyu123/eq-guide/eq-guide-ccc19c578c952b411d06ce5f109ddf0429802660/components/Footer.tsx
+
 'use client';
 
 import React, { useState } from 'react';
