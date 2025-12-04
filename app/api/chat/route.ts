@@ -333,7 +333,11 @@ ${intentInfo}
       // 加上当前的最新一条用户消息（带心情提示）
       messages.push({ 
           role: "user", 
-          content: `(当前你的心情值: ${lastMood}) 用户回复: ${inputData.text}` 
+          content: `(当前你的心情值: ${lastMood}) 用户回复: ${inputData.text}
+          【系统强制提醒】：
+          1. 请时刻牢记你正在扮演【${levelInfo.opponentName}】。
+          2. 请根据在这个角色下，对用户的这句话做出反应。
+          3. 严禁替用户说话。`
       });
     }
 

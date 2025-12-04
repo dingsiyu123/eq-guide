@@ -37,15 +37,20 @@ const [shareImage, setShareImage] = useState<string | null>(null);
 const [isGenerating, setIsGenerating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const currentLevel = ARENA_LEVELS[currentLevelIdx];
+  const isGameEndedRef = useRef(false);
+  const currentLevelIdRef = useRef(0);
 
   useEffect(() => {
     setGameOver(false);
+    isGameEndedRef.current = false;
+
     setReviewMode(false);
     setTurnResult(null);
     setInputText('');
     setCurrentMood(currentLevel.initialMood);
     setCurrentOS(`（${currentLevel.opponentName}正在等待你的回复...）`);
-    
+    currentLevelIdRef.current = currentLevel.id;
+
     const openingParts = currentLevel.openingLine.split(/\|{1,3}/);
     setChatHistory([
       { sender: 'system', text: currentLevel.missionBrief as string },
@@ -69,7 +74,7 @@ const [isGenerating, setIsGenerating] = useState(false);
 
   const handleSend = async () => {
     if (!inputText.trim() || gameOver || isTyping) return;
-
+    const sendingLevelId = currentLevel.id;
     const userText = inputText;
     setInputText('');
     setIsTyping(true);
@@ -81,26 +86,37 @@ const [isGenerating, setIsGenerating] = useState(false);
     let actorFullResponse = "";
     let monologueFullResponse = "";
     
+    // ✅ 粘贴这段新代码
     getJudgeResult(
       historyWithUserMessage as ChatMessage[],
       currentLevel,
       currentMood
     ).then(judgeResult => {
+      // 如果裁判回来时，发现现在的关卡ID (currentLevelIdRef.current) 
+      // 已经不等于我出发时的ID (sendingLevelId) 了
+      // 说明用户已经切换到下一关了！这个结果直接作废！
+      if (currentLevelIdRef.current !== sendingLevelId) return
+      
+      // 1. 进门先看锁：如果门焊死了（比赛已结束），直接下班
+      if (isGameEndedRef.current) return;
+
       if (judgeResult) {
-        const diff = judgeResult.mood - currentMood;
-        if (diff !== 0) {
-          setMoodChange(diff);
-          setTimeout(() => setMoodChange(null), 2500);
+        
+        // 2. 如果这次判了结局，立马把门焊死，防止后面的裁判再进来
+        if (judgeResult.isGameOver) {
+            isGameEndedRef.current = true;
         }
-        setCurrentMood(judgeResult.mood);
 
         if (judgeResult.isGameOver) {
+          // --- 结局处理逻辑 (赢了/输了) ---
           setGameOver(true);
+          setCurrentMood(judgeResult.mood); 
+
           const finalResultData: ArenaTurn = {
             userReply: userText,
             aiResponse: actorFullResponse.replace(/\|{1,3}/g, '\n'),
             isWin: judgeResult.isWin,
-            score: judgeResult.mood,
+            score: judgeResult.score || judgeResult.mood, // 优先用 score
             mood: judgeResult.mood,
             innerOS: monologueFullResponse,
             analysis: judgeResult.analysis,
@@ -117,6 +133,18 @@ const [isGenerating, setIsGenerating] = useState(false);
             setChatHistory(prev => [...prev, ...systemMessages]);
             setReviewMode(true);
           }, 800);
+
+        } else {
+           // --- 普通对话逻辑 ---
+           // 只有门没锁的时候，才允许更新心情，防止心情值乱跳
+           if (!isGameEndedRef.current) {
+              const diff = judgeResult.mood - currentMood;
+              if (diff !== 0) {
+                setMoodChange(diff);
+                setTimeout(() => setMoodChange(null), 2500);
+              }
+              setCurrentMood(judgeResult.mood);
+           }
         }
       }
     }).catch(console.error);
@@ -126,6 +154,10 @@ const [isGenerating, setIsGenerating] = useState(false);
         historyWithUserMessage as ChatMessage[],
         currentLevel,
         (chunk: string) => {
+          
+          // 👉 【新增 1】如果关卡变了，直接退出
+          if (currentLevelIdRef.current !== sendingLevelId) return;
+
           actorFullResponse += chunk;
           const newStreamingBubbles = actorFullResponse
             .split(/\|{1,3}/)
@@ -133,6 +165,9 @@ const [isGenerating, setIsGenerating] = useState(false);
             .map(t => ({ sender: 'ai', text: t } as ChatHistoryItem));
 
           setChatHistory(prevHistory => {
+            // 👉 【新增 2】双重保险：在更新状态前再查一次
+            if (currentLevelIdRef.current !== sendingLevelId) return prevHistory;
+
             let lastUserIndex = -1;
             for (let i = prevHistory.length - 1; i >= 0; i--) {
               if (prevHistory[i].sender === 'user') {
@@ -140,6 +175,8 @@ const [isGenerating, setIsGenerating] = useState(false);
                 break;
               }
             }
+            if (lastUserIndex === -1) return prevHistory;
+
             const historyBeforeAiResponse = prevHistory.slice(0, lastUserIndex + 1);
             const historyAfterAiResponse = prevHistory.slice(lastUserIndex + 1).filter(m => m.sender !== 'ai');
             return [...historyBeforeAiResponse, ...newStreamingBubbles, ...historyAfterAiResponse];
@@ -147,10 +184,15 @@ const [isGenerating, setIsGenerating] = useState(false);
         }
       );
 
+      // 找到 const monologuePromise = ... 这一行，替换成：
       const monologuePromise = getMonologueResponse(
         historyWithUserMessage as ChatMessage[],
         currentLevel,
         (chunk: string) => {
+          
+          // 👉 【新增】如果关卡变了，独白也不许更新
+          if (currentLevelIdRef.current !== sendingLevelId) return;
+
           monologueFullResponse += chunk;
           setCurrentOS(monologueFullResponse);
         }
