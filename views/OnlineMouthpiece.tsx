@@ -13,6 +13,7 @@ interface Props {
 const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   // 1. 状态管理
   const [inputText, setInputText] = useState('');
+  const [contextInfo, setContextInfo] = useState(''); // 新增：补充背景信息
   const [selectedImage, setSelectedImage] = useState<string | null>(null); // 新增：存图片
   
   const [targetRole, setTargetRole] = useState('同事');
@@ -184,7 +185,8 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
         text: inputText,      // 有字传字
         role: finalRole || '对方',
         intent: finalIntent || '高情商回复',
-        score: relationScore
+        score: relationScore,
+        contextInfo: contextInfo
       }, (chunk) => {
         accumulatedText += chunk;
         const now = Date.now();
@@ -226,7 +228,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
             {/* 文本输入区 */}
             <textarea
               className="w-full bg-transparent border-none p-0 text-[17px] placeholder-slate-300 text-slate-800 font-medium resize-none focus:ring-0 leading-relaxed tracking-wide min-h-[120px]"
-              placeholder={`把对方发来的话粘贴在这里，或者写下你的诉求...\n(如果主动发消息，请留空或直接描述意图)`}
+              placeholder={`把对方发来的话粘贴在这里...(主动发消息则留空)\n\n\n↓直接上传聊天截图更快哦~`}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               autoFocus
@@ -374,8 +376,24 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
                     placeholder="输入具体意图 (如: 想借钱)"
                   />
                 </div>
+                
+                
               )}
             </div>
+            {/* --- 👇👇👇 把这段代码粘贴在“我的意图”那个 </div> 的后面 👇👇👇 --- */}
+            <div className="mt-6 px-1">
+               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block px-1">
+                  补充背景 <span className="font-normal opacity-50 text-[10px] normal-case">(让回复更精准)</span>
+               </label>
+               <input
+                  type="text"
+                  value={contextInfo}
+                  onChange={(e) => setContextInfo(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900/10 transition-all shadow-sm"
+                  placeholder="（选填）例：其实是我理亏 / 对方欠我钱..."
+               />
+            </div>
+           
 
             {/* 亲疏程度 */}
             <div className="pt-2">
