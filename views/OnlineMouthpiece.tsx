@@ -228,7 +228,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
             {/* 文本输入区 */}
             <textarea
               className="w-full bg-transparent border-none p-0 text-[17px] placeholder-slate-300 text-slate-800 font-medium resize-none focus:ring-0 leading-relaxed tracking-wide min-h-[120px]"
-              placeholder={`把对方发来的话粘贴在这里...(主动发消息则留空)\n\n\n↓直接上传聊天截图更快哦~`}
+              placeholder={`把对方发来的话粘贴在这里...(主动发消息则留空)\n\n↓直接上传聊天截图更快哦~`}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               autoFocus
