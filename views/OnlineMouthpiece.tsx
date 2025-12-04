@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Plan } from '../types';
 import Header from '../components/Header';
 import ResultCard from '../components/ResultCard';
@@ -20,7 +20,8 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   const [myIntent, setMyIntent] = useState('糊弄Ta');
   const [customIntent, setCustomIntent] = useState('');
   const [relationScore, setRelationScore] = useState(5);
-  
+  const [savedCustomRoles, setSavedCustomRoles] = useState<string[]>([]);
+  const [savedCustomIntents, setSavedCustomIntents] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Plan[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -29,6 +30,21 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastUpdateRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 【新增】useEffect：组件挂载时从 localStorage 加载数据
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedRoles = localStorage.getItem('onlineMouthpiece_customRoles');
+      if (savedRoles) {
+          try { setSavedCustomRoles(JSON.parse(savedRoles)); } catch (e) { console.error("Error loading custom roles", e); }
+      }
+      const savedIntents = localStorage.getItem('onlineMouthpiece_customIntents');
+      if (savedIntents) {
+          try { setSavedCustomIntents(JSON.parse(savedIntents)); } catch (e) { console.error("Error loading custom intents", e); }
+      }
+    }
+  }, []);
+  
 
   // 2. 辅助函数：解析流式数据
   const parseStreamToPlans = (fullText: string): Plan[] => {
@@ -45,7 +61,7 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
           id: `stream-${index}`,
           title: titleMatch[1].trim(),
           mindset: mindsetMatch ? mindsetMatch[1].trim().replace(/^["“]|["”]$/g, '') : '',
-          originalText: inputText || (selectedImage ? '【聊天记录截图】' : '【主动发起】'),
+          originalText: inputText || (selectedImage ? '【聊天记录截图】' : undefined),
           replyText: replyMatches.map(m => m[1].trim())
         });
       }
@@ -110,13 +126,43 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
 
   // 4. 统一生成函数
   const handleGenerate = async () => {
-    const finalRole = targetRole === '自定义' ? customRole : targetRole;
-    const finalIntent = myIntent === '自定义' ? customIntent : myIntent;
+    let currentRole = targetRole;
+    let currentIntent = myIntent;
     
-    // 校验：必须有图或者有字
-    if (!inputText.trim() && !selectedImage) {
-      alert('请至少输入文字或上传一张截图');
-      return;
+    // 【新增】持久化自定义内容逻辑
+    if (targetRole === '自定义' && customRole.trim()) {
+      const trimmedRole = customRole.trim();
+      const newRoles = [trimmedRole, ...savedCustomRoles].filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 5); // 去重，限5个
+      setSavedCustomRoles(newRoles);
+      localStorage.setItem('onlineMouthpiece_customRoles', JSON.stringify(newRoles));
+      currentRole = trimmedRole; // 确保下一步使用新的角色名称
+    }
+    
+    if (myIntent === '自定义' && customIntent.trim()) {
+      const trimmedIntent = customIntent.trim();
+      const newIntents = [trimmedIntent, ...savedCustomIntents].filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 5); // 去重，限5个
+      setSavedCustomIntents(newIntents);
+      localStorage.setItem('onlineMouthpiece_customIntents', JSON.stringify(newIntents));
+      currentIntent = trimmedIntent; // 确保下一步使用新的意图名称
+    }
+    
+    const finalRole = currentRole === '自定义' ? customRole : currentRole;
+    const finalIntent = currentIntent === '自定义' ? customIntent : currentIntent;
+
+    // 【修复原Bug】如果所有输入都为空，则禁止生成。
+    if (!inputText.trim() && !selectedImage && !finalRole.trim() && !finalIntent.trim()) {
+        alert('请至少输入文字、上传截图或选择/填写自定义选项');
+        return;
+    }
+    
+    // 清空自定义输入框，并将选择器指向新保存的选项
+    if (targetRole === '自定义') {
+        setCustomRole('');
+        setTargetRole(finalRole);
+    }
+    if (myIntent === '自定义') {
+        setCustomIntent('');
+        setMyIntent(finalIntent);
     }
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -241,7 +287,10 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
                 对方身份
               </label>
               <div className="flex flex-wrap gap-2.5">
-                {['同事', '亲戚', '客户', '上司', '自定义'].map(role => (
+              {['同事', '亲戚', '客户', '上司']
+                .concat(savedCustomRoles) // 包含已保存的自定义项
+                .filter((v, i, a) => v && a.indexOf(v) === i) // 过滤空值和重复项
+                .map(role => (
                   <button
                     key={role}
                     onClick={() => setTargetRole(role)}
@@ -254,7 +303,19 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
                     {role}
                   </button>
                 ))}
-              </div>
+                {/* 专用的自定义按钮，确保其始终存在 */}
+                <button
+                    key="自定义"
+                    onClick={() => setTargetRole('自定义')}
+                    className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
+                      targetRole === '自定义'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    自定义
+                </button>
+            </div>
               {targetRole === '自定义' && (
                 <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
                   <input
@@ -274,19 +335,34 @@ const OnlineMouthpiece: React.FC<Props> = ({ onBack, initialParams }) => {
                 我的意图
               </label>
               <div className="flex flex-wrap gap-2.5">
-                {['答应Ta', '糊弄Ta', '拒绝Ta', '自定义'].map(intent => (
+                {['答应Ta', '糊弄Ta', '拒绝Ta']
+                  .concat(savedCustomIntents) // 包含已保存的自定义项
+                  .filter((v, i, a) => v && a.indexOf(v) === i) // 过滤空值和重复项
+                  .map(intent => (
+                    <button
+                      key={intent}
+                      onClick={() => setMyIntent(intent)}
+                      className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
+                        myIntent === intent 
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {intent}
+                    </button>
+                  ))}
+                  {/* 专用的自定义按钮，确保其始终存在 */}
                   <button
-                    key={intent}
-                    onClick={() => setMyIntent(intent)}
-                    className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
-                      myIntent === intent 
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]' 
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    {intent}
+                      key="自定义"
+                      onClick={() => setMyIntent('自定义')}
+                      className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all border ${
+                        myIntent === '自定义'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-[1.02]'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      自定义
                   </button>
-                ))}
               </div>
               {myIntent === '自定义' && (
                 <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">

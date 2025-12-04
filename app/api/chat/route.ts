@@ -132,7 +132,10 @@ if (type === 'online' && inputData.image) {
 ## 🎯 你的核心任务
 根据用户提供的【对方原话】、【对方身份】和【亲疏程度评分（0分是陌生，10分是很亲密）】，生成回复文案，但不能显得圆滑、刻意、虚伪，或者给自己好被拆穿、或根本无现实依据的借口谎言，必须要看上去“很真诚”，字数和条数你可以视具体情况而定，没有限制。
 **注意：你的回复必须完全模拟真人，严禁出现AI翻译腔，严禁说教。无需出现任何动作**
-如果用户提供的【对方原话】内容为 "【无原话，用户想主动发起对话】" 或者为空：意味着用户是想主动发起对话
+// 【最高优先级】如果你观察到用户提供的【对方原话/聊天记录】内容为空：
+// 1. **严禁**凭空捏造对方的对话内容。
+// 2. 你的核心任务转变为：根据【我的意图】和【对方身份】和【关系评分】，生成用户要发送的**主动开场消息**。
+
 
 **心法部分的特殊要求**
 -心法部分80字以内，采用“冷峻军师”风格。直击人性弱点。
@@ -173,7 +176,12 @@ if (type === 'online' && inputData.image) {
 
       // 3. 构建用户输入内容
       // 这里的 inputData.text 已经被前面的 OCR 逻辑处理过了（如果有图，就是提取内容；没图，就是用户粘贴的字）
-      const userContent = `对方身份：${inputData.role}\n我的意图：${inputData.intent}\n关系分(0-10)：${inputData.score}\n\n${inputData.text}`;
+      let contentForAI = inputData.text;
+      if (!contentForAI.trim()) {
+        contentForAI = "【对方原话/聊天记录】：无。请生成主动开场消息。";
+      }
+      
+      const userContent = `对方身份：${inputData.role}\n我的意图：${inputData.intent}\n关系分(0-10)：${inputData.score}\n\n${contentForAI}`;
       
       messages = [
         { role: "system", content: systemPrompt },
