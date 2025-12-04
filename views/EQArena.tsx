@@ -206,12 +206,15 @@ const EQArena: React.FC<Props> = ({ onBack }) => {
           </div>
         </div>
 
-        {/* 内心 OS (折叠式胶囊) */}
+        {/* 内心 OS (自适应气泡) */}
         {currentOS && !gameOver && (
-          <div className="flex justify-center">
-             <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-3 py-1 max-w-full animate-[fadeIn_0.5s_ease-out] shadow-sm">
-                <BrainCircuit size={12} className="text-slate-400 shrink-0" />
-                <p className="text-xs text-slate-500 truncate max-w-[280px]">
+          <div className="flex justify-center px-4">
+             <div className="inline-flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2 max-w-full animate-[fadeIn_0.5s_ease-out] shadow-sm">
+                {/* 图标加一点顶部 margin，对齐第一行文字 */}
+                <BrainCircuit size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                
+                {/* 核心改动：移除 truncate，允许换行 */}
+                <p className="text-xs text-slate-600 leading-relaxed text-justify break-words">
                   {currentOS.replace(/[（）()]/g, '')}
                 </p>
              </div>

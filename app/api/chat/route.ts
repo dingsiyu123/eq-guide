@@ -13,7 +13,7 @@ const rateLimitMap = new Map<string, number>();
 
 // === 新增配置：视觉模型 ===
 // 注意：如果在硅基流动报错 model not found，请尝试把这里改成 "Qwen/Qwen2.5-VL-72B-Instruct"
-const VISION_MODEL = "Qwen/Qwen2-VL-72B-Instruct"; 
+const VISION_MODEL = "Qwen/Qwen3-VL-32B-Instruct"; 
 
 // === 辅助函数：专门用来提取图片文字 ===
 async function extractTextFromImage(apiKey: string, base64Image: string): Promise<string> {
@@ -21,7 +21,10 @@ async function extractTextFromImage(apiKey: string, base64Image: string): Promis
     console.log("正在调用视觉模型:", VISION_MODEL);
     const response = await fetch(API_URL, {
       method: "POST",
-      // ... headers 保持不变
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
       body: JSON.stringify({
         model: VISION_MODEL,
         messages: [
@@ -163,8 +166,8 @@ if (type === 'online' && inputData.image) {
 
 ## 🔥 语气克隆与接续（高级模式 - 仅在有聊天记录时生效）
 用户提供了【聊天记录截图提取内容】，你必须像用户的“影子写手”一样：
-1. **分析人设**：仔细观察记录中【我】的历史语气（是活泼爱用表情？还是高冷短句？是卑微还是强势？），你的回复必须完美复刻这种风格。
-2. **无缝接续**：你的回复要能完美接上上一句话，不要有割裂感。
+1. **分析人设**：仔细揣摩观察记录中【我】的历史语气（如有），你的回复必须完美复刻这种风格。
+2. **无缝接续**：你的回复要符合内容，帮助用户按他的意图接上对面的话，不要有割裂感。
 3. **识别关系**：根据截图顶部的标题（备注名/群名）调整分寸（群聊要看清是谁在说话）。`;
       }
 
