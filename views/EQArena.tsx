@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArenaTurn, ChatMessage } from '../types';
 import Header from '../components/Header';
 import { getActorResponse, getMonologueResponse, getJudgeResult, ARENA_LEVELS } from '../services/aiService';
-import { generatePoster } from '../utils/posterGenerator'; // 【新增】海报生成函数导入
+import { generateArenaPoster } from '../utils/posterGenerator'; // 新增这一行import { generatePoster } from '../utils/posterGenerator'; // 【新增】海报生成函数导入
 import { Send, BrainCircuit, Heart, Zap, RefreshCw, User, Bot, Sparkles, Trophy, Frown, ArrowRight, Copy, Share2, X, Loader2 } from 'lucide-react';
 
 
@@ -334,19 +334,46 @@ const [isGenerating, setIsGenerating] = useState(false);
 
       {/* 3. 底部操作栏 */}
       {reviewMode && turnResult ? (
-        <div className="p-4 bg-white border-t border-slate-200 safe-area-pb">
-            <button 
-              onClick={turnResult.isWin ? handleNextLevel : handleRetry}
-              className={`w-full py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
-                turnResult.isWin 
-                ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' 
-                : 'bg-slate-800 hover:bg-slate-900 shadow-slate-200'
-              }`}
-            >
-              {turnResult.isWin ? <>下一关 <ArrowRight size={18}/></> : <>再试一次 <RefreshCw size={18}/></>}
-            </button>
-        </div>
-      ) : !gameOver ? (
+  <div className="p-4 bg-white border-t border-slate-200 safe-area-pb space-y-3">
+    {/* 🎉 新增：分享按钮 */}
+    <button 
+      onClick={async () => {
+        setShowShareModal(true);
+        setIsGenerating(true);
+        try {
+          const posterData = await generateArenaPoster(
+            turnResult,
+            currentLevel,
+            chatHistory.filter(m => m.sender !== 'system')
+          );
+          setShareImage(posterData);
+        } catch (e) {
+          console.error('海报生成失败:', e);
+          alert('生成失败，请重试');
+          setShowShareModal(false);
+        } finally {
+          setIsGenerating(false);
+        }
+      }}
+      className="w-full py-3.5 rounded-xl font-bold text-slate-900 bg-white border-2 border-slate-200 hover:border-slate-300 shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+    >
+      <Share2 size={18}/>
+      <span>生成战报海报</span>
+    </button>
+
+    {/* 原有的按钮 */}
+    <button 
+      onClick={turnResult.isWin ? handleNextLevel : handleRetry}
+      className={`w-full py-3.5 rounded-xl font-bold text-white shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
+        turnResult.isWin 
+        ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' 
+        : 'bg-slate-800 hover:bg-slate-900 shadow-slate-200'
+      }`}
+    >
+      {turnResult.isWin ? <>下一关 <ArrowRight size={18}/></> : <>再试一次 <RefreshCw size={18}/></>}
+    </button>
+  </div>
+) : !gameOver ? (
         <div className="p-3 bg-white border-t border-slate-200 safe-area-pb">
           <div className="flex items-end gap-2 bg-slate-50 p-1.5 rounded-3xl border border-slate-200 focus-within:border-slate-400 focus-within:bg-white transition-colors shadow-inner">
             <textarea
@@ -378,6 +405,43 @@ const [isGenerating, setIsGenerating] = useState(false);
           </div>
         </div>
       ) : null}
+    
+   {/* === 分享弹窗 === */}
+   {showShareModal && (
+        <div 
+          onClick={() => setShowShareModal(false)}
+          className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
+        >
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-[340px] flex flex-col items-center">
+            
+            <button 
+              onClick={() => setShowShareModal(false)}
+              className="absolute -top-10 right-0 w-8 h-8 rounded-full bg-white/10 text-white/80 flex items-center justify-center hover:bg-white/30 transition-all active:scale-90 z-50"
+            >
+              <X size={18} strokeWidth={2.5} />
+            </button>
+
+            <div className="relative shadow-2xl rounded-2xl overflow-hidden bg-white w-full min-h-[400px]">
+              {isGenerating ? (
+                <div className="absolute inset-0 z-20 bg-white flex flex-col items-center justify-center gap-3">
+                  <Loader2 size={32} className="animate-spin text-blue-600" />
+                  <p className="text-sm font-bold text-slate-600 animate-pulse">正在生成战报...</p>
+                </div>
+              ) : (
+                shareImage && (
+                  <img src={shareImage} alt="战报海报" className="w-full h-auto block animate-[fadeIn_0.3s_ease-out]" />
+                )
+              )}
+            </div>
+
+            {shareImage && !isGenerating && (
+              <p className="text-white/90 text-xs font-bold mt-5 bg-black/50 px-5 py-2.5 rounded-full backdrop-blur-md animate-bounce shadow-lg">
+                长按图片保存 · 发给朋友炫耀
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

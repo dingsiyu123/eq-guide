@@ -540,4 +540,179 @@ function drawBubble(ctx: CanvasRenderingContext2D, x: number, y: number, lines: 
     ctx.fillText(line, textX, textY);
     textY += 36;
   }
+
+}
+/**
+ * 🎮 游戏战报海报生成器
+ */
+export async function generateArenaPoster(
+  turnResult: any,  // 游戏结果对象
+  levelInfo: any,   // 关卡信息
+  chatHistory: any[] // 聊天记录
+): Promise<string> {
+  
+  await loadFonts();
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 750;
+  canvas.height = 1200; // 固定高度
+
+  const ctx = canvas.getContext('2d')!;
+  
+  // 1. 背景
+  const bgGrad = ctx.createLinearGradient(0, 0, 750, 1200);
+  if (turnResult.isWin) {
+    bgGrad.addColorStop(0, '#ECFDF5'); // 浅绿
+    bgGrad.addColorStop(1, '#D1FAE5');
+  } else {
+    bgGrad.addColorStop(0, '#FEF2F2'); // 浅红
+    bgGrad.addColorStop(1, '#FEE2E2');
+  }
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, 750, 1200);
+
+  let currentY = 60;
+
+  // 2. 顶部标题
+  ctx.fillStyle = THEME.textMain;
+  ctx.font = `900 40px ${FONT_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('情商江湖 · 战报', 375, currentY);
+  
+  currentY += 60;
+
+  // 3. 结果大标题卡片
+  const resultText = turnResult.isWin ? '闯关成功' : '技不如人';
+  const resultColor = turnResult.isWin ? '#10B981' : '#EF4444';
+  const scoreText = `师爷打分：${turnResult.score || 0}`;
+
+  drawRoundedRect(ctx, 40, currentY, 670, 140, 20, '#FFFFFF', THEME.border, 1);
+  
+  // 胜负图标
+  const iconY = currentY + 70;
+  drawCircle(ctx, 100, iconY, 30, null, resultColor);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 28px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(turnResult.isWin ? '✓' : '✗', 100, iconY + 10);
+
+  // 右侧文字
+  ctx.textAlign = 'left';
+  ctx.fillStyle = THEME.textMain;
+  ctx.font = `bold 36px ${FONT_FAMILY}`;
+  ctx.fillText(resultText, 150, currentY + 55);
+
+  ctx.fillStyle = resultColor;
+  ctx.font = `bold 28px ${FONT_FAMILY}`;
+  ctx.fillText(scoreText, 150, currentY + 100);
+
+  currentY += 170;
+
+  // 4. 关卡信息
+  ctx.fillStyle = THEME.textMain; // 将这一行从 THEME.textSub 修改为 THEME.textMain
+  ctx.font = `22px ${FONT_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(`关卡：${levelInfo.title}`, 375, currentY);
+  currentY += 35;
+  ctx.fillText(`对手：${levelInfo.opponentName}`, 375, currentY);
+  
+  currentY += 60;
+
+  // 5. 师爷点评卡片
+  drawRoundedRect(ctx, 40, currentY, 670, 200, 16, '#F8FAFC', THEME.border, 1);
+  
+  ctx.fillStyle = THEME.accent;
+  ctx.fillRect(50, currentY + 20, 4, 20);
+  
+  ctx.fillStyle = THEME.textMain;
+  ctx.font = `bold 24px ${FONT_FAMILY}`;
+  ctx.textAlign = 'left';
+  ctx.fillText('师爷锐评', 65, currentY + 35);
+
+  // 点评内容（自动换行）
+  ctx.font = `22px ${FONT_FAMILY}`;
+  ctx.fillStyle = THEME.textSub;
+  const analysisLines = wrapText(ctx, turnResult.analysis || '精彩对局', 620);
+  let analysisY = currentY + 75;
+  analysisLines.forEach(line => {
+    ctx.fillText(line, 60, analysisY);
+    analysisY += 36;
+  });
+
+  currentY += 230;
+
+  // 6. 搞笑行动（如果有）
+  if (turnResult.funnyReaction) {
+    ctx.font = `20px ${FONT_FAMILY}`;
+    ctx.fillStyle = THEME.textLight;
+    ctx.textAlign = 'center';
+    
+    const funnyReactionLines = wrapText(ctx, turnResult.funnyReaction, 600); // 假设最大宽度为600
+    let funnyReactionY = currentY;
+    funnyReactionLines.forEach((line, index) => {
+      const prefix = index === 0 ? '💬 ' : ''; // 只在第一行加表情
+      ctx.fillText(`${prefix}${line}`, 375, funnyReactionY);
+      funnyReactionY += 30; // 调整行高
+    });
+    currentY = funnyReactionY + 20; // 调整整体向下偏移量
+  }
+
+  // 7. 底部二维码（复用已有的 footer 逻辑）
+  await drawFooter(ctx, currentY + 40);
+
+  return canvas.toDataURL('image/png', 1.0);
+  function drawDialogueSection(ctx: CanvasRenderingContext2D, chatHistory: any[], y: number): number {
+    const contentWidth = 750 - 80;
+    ctx.font = `bold 26px ${FONT_FAMILY}`;
+  
+    // 取最近的两条消息作为一轮对话
+    const messagesToDisplay = chatHistory.slice(-2);
+  
+    let currentY = y;
+  
+    messagesToDisplay.forEach(message => {
+      // 假设消息内容在 message.content 中
+      const lines = wrapText(ctx, message.content, contentWidth - 140);
+      const h = lines.length * 36 + 40; // 气泡高度计算
+  
+      const avatarRadius = 28;
+      let avatarX: number;
+      let bubbleX: number;
+      let bubbleType: 'left' | 'right';
+      let avatarText: string;
+      let avatarFillStyle: string;
+  
+      // 假设 message.role 为 'user' 代表用户，其他角色（如 'assistant'）代表对手
+      if (message.role === 'user') { // 用户消息（右侧气泡）
+        bubbleType = 'right';
+        avatarX = 750 - 50; // 头像靠右
+        const textWidth = measureTextWidth(ctx, lines);
+        const bubbleWidth = textWidth + 60; // 计算气泡实际宽度
+        bubbleX = avatarX - avatarRadius - 12 - bubbleWidth; // 气泡位置
+        avatarText = '我';
+        avatarFillStyle = THEME.textMain;
+      } else { // 对手消息（左侧气泡）
+        bubbleType = 'left';
+        avatarX = 70; // 头像靠左
+        bubbleX = 110; // 气泡位置
+        avatarText = 'TA';
+        avatarFillStyle = '#F1F5F9';
+      }
+  
+      drawBubble(ctx, bubbleX, currentY, lines, h, bubbleType);
+  
+      const avatarY = currentY + h - 18;
+      drawCircle(ctx, avatarX, avatarY, avatarRadius, null, avatarFillStyle);
+      
+      ctx.fillStyle = (message.role === 'user') ? '#FFFFFF' : '#64748B'; // 头像文字颜色
+      ctx.font = 'bold 18px "Arial", sans-serif'; // 头像文字字体
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(avatarText, avatarX, avatarY);
+  
+      currentY += h + 25; // 气泡之间的间距
+    });
+  
+    return currentY;
+  }
 }
